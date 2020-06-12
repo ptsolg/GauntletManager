@@ -11,6 +11,7 @@ from discord.ext import commands
 from discord.ext.commands import UserConverter
 from challenge import Context, BotErr
 from xlsx import DefaultWriter, GoogleSheetsWriter, XlsxExporter
+from enum import Enum
 
 bot = commands.Bot(command_prefix='!')
 bot.remove_command('help')
@@ -18,12 +19,18 @@ ctx = Context(challenges={}, users={})
 gsheets_client = None
 spreadsheet = None
 
-def check_cmd_ctx(cmd_ctx):
+class Privelege(Enum):
+	ADMIN = 0
+	USER = 1
+
+def check_cmd_ctx(cmd_ctx, privilege_level = Privelege.ADMIN):
 	author = cmd_ctx.message.author
 	if type(author) is not Member:
 		raise Exception('PMs are not allowed.')
-	if 'Bot commander' not in map(lambda x: x.name, cmd_ctx.message.author.roles):
-		raise BotErr('"Bot commander" role required.')
+
+	if privilege_level == Privelege.ADMIN:
+		if 'bot commander' not in map(lambda x: x.name.lower(), cmd_ctx.message.author.roles):
+			raise BotErr('"Bot Commander" role required.')
 
 def save():
 	open('challenges.json', 'w').write(ctx.to_json())
@@ -75,9 +82,20 @@ async def add_user(cmd_ctx, user: UserConverter):
 		await cmd_ctx.send(e)
 
 @bot.command()
-async def set_color(cmd_ctx, user: UserConverter, color: str):
+async def set_color(cmd_ctx, *args):
 	try:
-		check_cmd_ctx(cmd_ctx)
+		privilege_level = Privelege.USER
+		user = cmd_ctx.message.author
+		color = '#FFFFFF'
+
+		if len(args) > 1:
+			user = args[0]
+			color = args[1]
+			privilege_level = Privelege.ADMIN
+		elif len(args) == 1:
+			color = args[0]
+
+		check_cmd_ctx(cmd_ctx, privilege_level)
 		if re.match(r'^#[a-fA-F0-9]{6}$', color) is None:
 			return await cmd_ctx.send('Invalid color "{}".'.format(color))
 		ctx.set_color(user, color)
@@ -159,9 +177,29 @@ async def end_round(cmd_ctx):
 		await channel.send(e)
 
 @bot.command()
-async def rate(cmd_ctx, user: UserConverter, score: float):
+async def rate(cmd_ctx, *args):
 	try:
-		check_cmd_ctx(cmd_ctx)
+		user = cmd_ctx.message.author
+		score = 0.0
+
+		if len(args) < 1 or len(args) > 2:
+			await cmd_ctx.send('Ivalid number of arguments({}). !rate <user> score'.format(len(args)))
+			return
+
+		privilege_level = Privelege.USER
+
+		if len(args) > 1:
+			privilege_level = Privelege.ADMIN
+			user = args[0]
+			score = float(args[1])
+		else:
+			score = float(args[0])
+
+		if score < 0.0 or score > 10.0:
+			await cmd_ctx.send('Score must be in range from 0 to 10')
+			return
+
+		check_cmd_ctx(cmd_ctx, privilege_level)
 		ctx.rate(user, score)
 		save()
 		title = ctx.current().last_round().rolls[user.id].title
@@ -170,8 +208,17 @@ async def rate(cmd_ctx, user: UserConverter, score: float):
 		await cmd_ctx.send(e)
 
 @bot.command()
-async def reroll(cmd_ctx, user: UserConverter, pool: str):
+async def reroll(cmd_ctx, *args):
 	try:
+		user = cmd_ctx.message.author
+		pool = 'main'
+
+		if len(args) > 0:
+			user = args[0]
+
+		if len(args) > 1:
+			pool = args[1]
+
 		check_cmd_ctx(cmd_ctx)
 		title = ctx.reroll(user, pool)
 		save()
@@ -180,8 +227,19 @@ async def reroll(cmd_ctx, user: UserConverter, pool: str):
 		await cmd_ctx.send(e)
 
 @bot.command()
+async def rename_title(cmd_ctx, old_title: str, new_title: str):
+	try:
+		check_cmd_ctx(cmd_ctx)
+		ctx.rename_title(old_title, new_title)
+		save()
+		await cmd_ctx.send('Title {} has been renamed to {}.'.format(old_title, new_title))
+	except BotErr as e:
+		await cmd_ctx.send(e)
+
+@bot.command()
 async def remove_user(cmd_ctx, user: UserConverter):
 	try:
+		check_cmd_ctx(cmd_ctx)
 		ctx.remove_user(user)
 		save()
 		await cmd_ctx.send('User {} has been removed.'.format(user.mention))
@@ -191,6 +249,7 @@ async def remove_user(cmd_ctx, user: UserConverter):
 @bot.command()
 async def remove_title(cmd_ctx, title: str):
 	try:
+		check_cmd_ctx(cmd_ctx)
 		ctx.remove_title(title)
 		save()
 		await cmd_ctx.send('Title "{}" has been removed'.format(title))
@@ -200,6 +259,7 @@ async def remove_title(cmd_ctx, title: str):
 @bot.command()
 async def remove_pool(cmd_ctx, pool: str):
 	try:
+		check_cmd_ctx(cmd_ctx)
 		ctx.remove_pool(pool)
 		save()
 		await cmd_ctx.send('Pool "{}" has been removed'.format(pool))
@@ -235,8 +295,8 @@ async def export(cmd_ctx, ext: str):
 @bot.command()
 async def help(cmd_ctx):
 	await cmd_ctx.send('''
-		!new_challenge name
-		!new_pool name
+		!start_challenge name
+		!add_pool name
 		!add_user @user
 		!add_title pool @user title_name title_url
 		!start_round days
@@ -264,7 +324,7 @@ if __name__ == '__main__':
 	except Exception as e:
 		print(str(e))
 
-	gsheets_client = pygsheets.authorize()
+	gsheets_client = pygsheets.authorize('client_secret.json')
 	spreadsheet = gsheets_client.open_by_key('some key')
 	bot.loop.create_task(check_deadline())
 	bot.run(open('discord_token.txt').read())

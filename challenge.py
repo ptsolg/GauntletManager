@@ -81,6 +81,10 @@ class Pool:
 		self.all_titles.append(title)
 		self.unused_titles.append(title)
 
+	def sort(self):
+		self.all_titles.sort()
+		self.unused_titles.sort()
+
 	def pop(self):
 		self.check_size(1)
 		return self.unused_titles.pop(random.randrange(len(self.unused_titles)))
@@ -116,6 +120,7 @@ class Challenge:
 		if title_name in self.titles:
 			raise BotErr('Title "{}" already exists.'.format(title_name))
 		self.pool(pool).add(title_name)
+		self.pool(pool).sort()
 		self.titles[title_name] = title_info
 		
 	def add_participant(self, user):
@@ -246,6 +251,21 @@ class Context:
 				pool.all_titles.remove(title_name)
 			if title_name in pool.unused_titles:
 				pool.unused_titles.remove(title_name)
+
+	def rename_title(self, old_title, new_title):
+		challenge = self.current()
+		challenge.check_not_started()
+
+		if old_title not in challenge.titles:
+			raise BotErr('Title "{}" does not exist.'.format(old_title))
+
+		challenge.titles[new_title] = challenge.titles[old_title]
+		del challenge.titles[old_title]
+		for (_, pool) in challenge.pools.items():
+			if old_title in pool.all_titles:
+				pool.all_titles[pool.all_titles.index(old_title)] = new_title
+			if old_title in pool.unused_titles:
+				pool.unused_titles[pool.unused_titles.index(old_title)] = new_title
 
 	def start_round(self, timedelta):
 		challenge = self.current()

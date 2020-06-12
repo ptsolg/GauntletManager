@@ -52,6 +52,8 @@ class GoogleSheetsWriter:
 			max_col = max(max_col, cell.col)
 
 		DataRange((1, 1), (100, max_col), self.worksheet).apply_format(Cell((1, 1)))
+
+		self.worksheet.clear()
 		self.worksheet.update_cells(self.cells)
 		self.worksheet.adjust_column_width(1, self.worksheet.cols)
 		self.worksheet = None
@@ -227,6 +229,7 @@ class XlsxExporter:
 
 	def export_challenge(self, challenge_name):
 		self.writer.new_worksheet(challenge_name)
+
 		self.challenge = self.ctx.challenges[challenge_name]
 		self.col = 0
 		self.row = 0

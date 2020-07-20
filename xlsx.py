@@ -51,7 +51,7 @@ class GoogleSheetsWriter:
 		for cell in self.cells:
 			max_col = max(max_col, cell.col)
 
-		DataRange((1, 1), (100, max_col), self.worksheet).apply_format(Cell((1, 1)))
+		DataRange((1, 1), (100, 26), self.worksheet).apply_format(Cell((1, 1)))
 
 		self.worksheet.clear()
 		self.worksheet.update_cells(self.cells)
@@ -71,9 +71,17 @@ class GoogleSheetsWriter:
 			cell.horizontal_alignment = HorizontalAlignment.CENTER
 		if 'bg_color' in format:
 			cell.color = col2tuple(format['bg_color'])
+
+
 		if 'font_strikeout' in format and format['font_strikeout']:
 			cell.set_text_format('strikethrough', True)
-		cell.set_text_format('foregroundColor', (0, 0, 0, 0))
+
+		luminosity = (0.2126*cell.color[0] + 0.7152*cell.color[1] + 0.0722*cell.color[2])
+		if luminosity >= 0.5:
+			cell.set_text_format('foregroundColor', (0, 0, 0, 0))
+		else:
+			cell.set_text_format('foregroundColor', (1, 1, 1, 0))
+
 		cell.set_text_format('underline', False)
 		return cell
 

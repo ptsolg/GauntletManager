@@ -2,6 +2,7 @@ import json
 import random
 import xlsxwriter
 from datetime import datetime
+from collections import Counter
 
 class BotErr(Exception):
 	def __init__(self, msg):
@@ -138,6 +139,7 @@ class Challenge:
 		return rnd
 
 	def check_not_started(self):
+		#return 
 		if len(self.rounds) != 0:
 			raise BotErr('Cannot add/delete user/title/pool after a challenge has started.')
 
@@ -174,7 +176,10 @@ class Context:
 	def current(self):
 		if self.current_challenge is None:
 			raise BotErr('Create a new challenge first.')
-		return self.challenges[self.current_challenge]	
+		return self.challenges[self.current_challenge]  
+
+	def get_current_titles(self):
+		return self.current().titles
 
 	def start_challenge(self, name, channel_id):
 		if self.current_challenge is not None:
@@ -221,26 +226,134 @@ class Context:
 
 	def remove_user(self, user):
 		challenge = self.current()
-		challenge.check_not_started()
 		challenge.check_participant(user)
 
-		user_titles = [name for (name, info) in challenge.titles.items() if info.proposer == user.id ]
-		for title in user_titles:
-			self.remove_title(title)
-		challenge.participants.remove(user.id)
+		if len(challenge.rounds) == 0:
+			user_titles = [name for (name, info) in challenge.titles.items() if info.proposer == user.id ]
+			for title in user_titles:
+				self.remove_title(title)
+			challenge.participants.remove(user.id)
+		else:
+			self.fail_user(user.id)			
 
 	def set_color(self, user, color):
-		self.users[user.id] = UserInfo(user.name, color)
+		if user.id not in self.users:
+			raise BotErr('Invalid User')
+		self.users[user.id] = UserInfo(self.users[user.id].name, color)
+
+	def get_color(self, user):
+		if user.id not in self.users:
+			raise BotErr('Invalid User')
+		return self.users[user.id].color
+
+	def set_name(self, user, name):
+		if user.id not in self.users:
+			raise BotErr('Invalid User')
+		self.users[user.id] = UserInfo(name, self.users[user.id].color)
+
+	def get_name(self, user):
+		if user.id not in self.users:
+			raise BotErr('Invalid User')
+		return self.users[user.id].name
+			
+	def get_challenges_num(self, user):
+		return len([c for c in self.challenges.values() if user.id in c.participants])
+
+	def get_completed_num(self, user):
+		return len([c for c in self.challenges.values() if user.id in c.participants and user.id not in c.failed_participants and c != self.current()])
+
+	def calc_karma(self, user_id):
+
+		def calc_karma_diff(score):
+			karma_step = 5
+			return (score-5)*karma_step
+
+		max_karma = 1000
+		
+		current_karma = max_karma//2
+
+		for challenge in self.challenges.values():
+			for r in challenge.rounds:
+				if not r.is_finished:
+					continue
+
+				for entry in r.rolls.values():
+					title = entry.title
+					score = entry.score
+					if score and challenge.titles[title].proposer == user_id:
+						current_karma += calc_karma_diff(score)
+						current_karma = min(current_karma, max_karma)
+						current_karma = max(current_karma, 0)		
+
+		return current_karma
+
+	def calc_avg_user_title_score(self, user):
+		scores=[]
+		for challenge in self.challenges.values():
+			for r in challenge.rounds:
+				if not r.is_finished:
+					continue
+
+				for entry in r.rolls.values():
+					title = entry.title
+					score = entry.score
+					if score and challenge.titles[title].proposer == user.id:
+						scores.append(score)
+		
+		return sum(scores) / len(scores)
+
+	def calc_avg_score_user_gives(self, user):
+		scores=[]
+		for challenge in self.challenges.values():
+			for r in challenge.rounds:
+				if not r.is_finished:
+					continue
+
+				for user_id, entry in r.rolls.items():
+					score = entry.score
+					if score and user_id == user.id:
+						scores.append(score)
+
+		return sum(scores) / len(scores)
+
+	def find_most_watched_users(self, user):
+		watched = Counter()
+		for challenge in self.challenges.values():
+			for r in challenge.rounds:
+				if not r.is_finished:
+					continue
+
+				for user_id, entry in r.rolls.items():
+					title = entry.title
+					proposer = challenge.titles[title].proposer
+					if user_id == user.id:
+						watched[self.users[proposer].name] += 1
+
+		return [(i[0], i[1]) for i in watched.most_common(None) if i[1] == watched.most_common(1)[0][1]]
+
+
+	def find_most_showed_users(self, user):
+		showed = Counter()
+		for challenge in self.challenges.values():
+			for r in challenge.rounds:
+				if not r.is_finished:
+					continue
+
+				for user_id, entry in r.rolls.items():
+					title = entry.title
+					proposer = challenge.titles[title].proposer
+					if proposer == user.id:
+						showed[self.users[user_id].name] += 1
+
+		return [(i[0], i[1]) for i in showed.most_common(None) if i[1] == showed.most_common(1)[0][1]]
 
 	def add_title(self, pool, proposer, title_name, title_url):
 		challenge = self.current()
-		challenge.check_not_started()
 		challenge.check_participant(proposer)
 		challenge.add_title(pool, title_name, TitleInfo(proposer.id, title_url))
 
 	def remove_title(self, title_name):
 		challenge = self.current()
-		challenge.check_not_started()
 
 		if title_name not in challenge.titles:
 			raise BotErr('Title "{}" does not exist.'.format(title_name))
@@ -254,7 +367,7 @@ class Context:
 
 	def rename_title(self, old_title, new_title):
 		challenge = self.current()
-		challenge.check_not_started()
+		#challenge.check_not_started()
 
 		if old_title not in challenge.titles:
 			raise BotErr('Title "{}" does not exist.'.format(old_title))
@@ -281,6 +394,7 @@ class Context:
 		if len(participants) == 0:
 			raise BotErr('Not enough participants to start a round.')
 
+		random.shuffle(participants)
 		titles = main.pop_n(len(participants))
 		rolls = dict(zip(participants, map(RollInfo, titles)))
 		begin = datetime.now()
@@ -299,6 +413,16 @@ class Context:
 
 		rnd.end = datetime.now().strftime(Round.TIME_FMT)
 		rnd.is_finished = True
+
+	def fail_user(self, user):
+		challenge = self.current()
+		rnd = challenge.last_round()
+		rnd_no = len(challenge.rounds) - 1
+
+		failed = challenge.failed_participants
+		if user not in failed:
+			failed[user] = rnd_no
+			rnd.rolls[user].score = None
 
 	def extend_round(self, timedelta):
 		challenge = self.current()
@@ -326,6 +450,49 @@ class Context:
 		for _, pool in challenge.pools.items():
 			if old_title in pool.all_titles:
 				pool.unused_titles.append(old_title)
+				pool.sort()
 				break
+			
 
 		return new_title
+
+	def set_title(self, user, title):
+		challenge = self.current()
+		last_round = challenge.last_round()
+		challenge.check_participant(user)
+
+		old_title = last_round.rolls[user.id].title
+
+		last_round.rolls[user.id].title = title
+		for _, pool in challenge.pools.items():
+			if title in pool.all_titles:
+				pool.unused_titles.remove(title)
+				pool.sort()
+				break
+
+		for _, pool in challenge.pools.items():
+			if old_title in pool.all_titles:
+				pool.unused_titles.append(old_title)
+				pool.sort()
+				break
+
+
+	def swap(self, user1, user2):
+		challenge = self.current()
+		last_round = challenge.last_round()
+		
+		challenge.check_participant(user1)
+		challenge.check_participant(user2)
+
+		title1 = last_round.rolls[user1.id].title
+		title2 = last_round.rolls[user2.id].title
+
+		last_round.rolls[user1.id].title = title2
+		last_round.rolls[user2.id].title = title1
+		return title1, title2
+
+	def is_in_challenge(self, user):
+		return user.id in self.current().participants
+
+	def get_end_round_time(self):
+		return self.current().last_round().parse_end()

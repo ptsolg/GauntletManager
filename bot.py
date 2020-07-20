@@ -5,8 +5,9 @@ import re
 import pygsheets
 import json
 import os
+import random
 from datetime import datetime, timedelta
-from discord import File, User, Member
+from discord import File, User, Member, Embed
 from discord.ext import commands
 from discord.ext.commands import UserConverter
 from challenge import Context, BotErr
@@ -19,16 +20,16 @@ ctx = Context(challenges={}, users={})
 gsheets_client = None
 spreadsheet = None
 
-class Privelege(Enum):
+class Privilege(Enum):
 	ADMIN = 0
 	USER = 1
 
-def check_cmd_ctx(cmd_ctx, privilege_level = Privelege.ADMIN):
+def check_cmd_ctx(cmd_ctx, privilege_level = Privilege.ADMIN):
 	author = cmd_ctx.message.author
 	if type(author) is not Member:
 		raise Exception('PMs are not allowed.')
 
-	if privilege_level == Privelege.ADMIN:
+	if privilege_level == Privilege.ADMIN:
 		if 'bot commander' not in map(lambda x: x.name.lower(), cmd_ctx.message.author.roles):
 			raise BotErr('"Bot Commander" role required.')
 
@@ -37,7 +38,10 @@ def save():
 
 def load():
 	global ctx
-	data = json.loads(open('challenges.json', 'r').read())
+	try:
+		data = json.loads(open('challenges.json', 'r').read())
+	except e:
+		print(e)
 	ctx = Context.from_json(data)
 
 @bot.command()
@@ -84,16 +88,18 @@ async def add_user(cmd_ctx, user: UserConverter):
 @bot.command()
 async def set_color(cmd_ctx, *args):
 	try:
-		privilege_level = Privelege.USER
+		privilege_level = Privilege.USER
 		user = cmd_ctx.message.author
 		color = '#FFFFFF'
-
-		if len(args) > 1:
-			user = args[0]
+		
+		if len(args) == 2:
+			user = await UserConverter().convert(cmd_ctx, args[0])
 			color = args[1]
-			privilege_level = Privelege.ADMIN
+			privilege_level = Privilege.ADMIN
 		elif len(args) == 1:
 			color = args[0]
+		else:
+			return await cmd_ctx.send('Invalid number of arguments({}). !set_color <user> color'.format(len(args)))
 
 		check_cmd_ctx(cmd_ctx, privilege_level)
 		if re.match(r'^#[a-fA-F0-9]{6}$', color) is None:
@@ -105,7 +111,42 @@ async def set_color(cmd_ctx, *args):
 		await cmd_ctx.send(e)
 
 @bot.command()
+async def set_name(cmd_ctx, *args):
+	try:
+		if len(args) > 2:
+			await cmd_ctx.send('Wrong nunber of arguments. !set_name <@user> name.')
+			return
+
+		privilege_level = Privilege.USER
+		user = cmd_ctx.message.author
+		name = ''
+
+		if len(args) == 2:
+			user = await UserConverter().convert(cmd_ctx, args[0])
+			name = args[1]
+			privilege_level = Privilege.ADMIN
+		elif len(args) == 1:
+			name = args[0]
+
+		max_length = 32
+		if len(name) > max_length:
+			await cmd_ctx.send('Name is too long. Max is {} characters.'.format(max_length))
+			return
+
+		if len(name) != len([c for c in name if c.isalnum()]):
+			await cmd_ctx.send('Error: Bad symbols in your name.')
+			return
+
+		check_cmd_ctx(cmd_ctx, privilege_level)
+		ctx.set_name(user, name)
+		save()
+		await cmd_ctx.send('{} got "{}" as a new name.'.format(user.mention, name))
+	except BotErr as e:
+		await cmd_ctx.send(e)
+
+@bot.command()
 async def sync(cmd_ctx):
+	check_cmd_ctx(cmd_ctx, Privilege.USER)
 	XlsxExporter(GoogleSheetsWriter(spreadsheet), ctx).export()
 	await cmd_ctx.send('Done.')
 
@@ -129,7 +170,6 @@ async def add_title(cmd_ctx, *args):
 	if len(args) < 2 or len(args) > 4:
 		return
 
-	name_pos = 1
 	pool = 'main'
 	title_url = None
 	user = await user_or_none(cmd_ctx, args[0])
@@ -147,6 +187,20 @@ async def add_title(cmd_ctx, *args):
 		title_url = args[-1]
 
 	await _add_title(cmd_ctx, pool, user, title_name, title_url)
+
+@bot.command()
+async def set_title(cmd_ctx, *args):
+	if len(args) != 2:
+		await cmd_ctx.send('Invalid number of arguments. Usage: !set_title <@user> <"title_name">')
+		return
+
+	check_cmd_ctx(cmd_ctx)
+	user = await user_or_none(cmd_ctx, args[0])
+	title_name = args[1]
+
+	ctx.set_title(user, title_name)
+	await cmd_ctx.send('Title "{}" has been assigned to {}'.format(title_name, user.mention))
+
 
 @bot.command()
 async def start_round(cmd_ctx, length: int):
@@ -174,7 +228,7 @@ async def end_round(cmd_ctx):
 		check_cmd_ctx(cmd_ctx)
 		await _end_round(cmd_ctx.message.channel)
 	except BotErr as e:
-		await channel.send(e)
+		await cmd_ctx.send(e)
 
 @bot.command()
 async def rate(cmd_ctx, *args):
@@ -183,14 +237,14 @@ async def rate(cmd_ctx, *args):
 		score = 0.0
 
 		if len(args) < 1 or len(args) > 2:
-			await cmd_ctx.send('Ivalid number of arguments({}). !rate <user> score'.format(len(args)))
+			await cmd_ctx.send('Invalid number of arguments({}). !rate <@user> score'.format(len(args)))
 			return
 
-		privilege_level = Privelege.USER
+		privilege_level = Privilege.USER
 
 		if len(args) > 1:
-			privilege_level = Privelege.ADMIN
-			user = args[0]
+			privilege_level = Privilege.ADMIN
+			user = await UserConverter().convert(cmd_ctx, args[0])
 			score = float(args[1])
 		else:
 			score = float(args[0])
@@ -214,7 +268,7 @@ async def reroll(cmd_ctx, *args):
 		pool = 'main'
 
 		if len(args) > 0:
-			user = args[0]
+			user = await UserConverter().convert(cmd_ctx, args[0])
 
 		if len(args) > 1:
 			pool = args[1]
@@ -223,6 +277,167 @@ async def reroll(cmd_ctx, *args):
 		title = ctx.reroll(user, pool)
 		save()
 		await cmd_ctx.send('User {} rolled "{}" from "{}" pool.'.format(user.mention, title, pool))
+	except BotErr as e:
+		await cmd_ctx.send(e)
+
+@bot.command()
+async def random_swap(cmd_ctx, *args):
+	try:
+		if len(args) < 2:
+			await cmd_ctx.send('Wrong nunber of arguments. !random_swap @user @candidate1 <@candidate2...>')
+			return
+
+		if args[0] in args[1:]:
+			await cmd_ctx.send("Can't swap titles between the same user.")
+			return
+		
+		user = await UserConverter().convert(cmd_ctx, args[0])
+		user2 = await UserConverter().convert(cmd_ctx, random.choice(args[1:]))
+
+		check_cmd_ctx(cmd_ctx)
+		title1, title2 = ctx.swap(user, user2)
+		save()
+		await cmd_ctx.send('User {} got "{}". User "{}" got {}.'.format(user.mention, title2, user2.mention, title1))
+	except BotErr as e:
+		await cmd_ctx.send(e)
+
+@bot.command()
+async def swap(cmd_ctx, *args):
+	try:
+		if len(args) != 2:
+			await cmd_ctx.send('Wrong nunber of arguments. !swap @user1 @user2.')
+			return
+
+		if args[0] == args[1]:
+			await cmd_ctx.send("Can't swap titles between the same user.")
+			return
+		user = await UserConverter().convert(cmd_ctx, args[0])
+		user2 = await UserConverter().convert(cmd_ctx, args[1])
+
+		check_cmd_ctx(cmd_ctx)
+		title1, title2 = ctx.swap(user, user2)
+		save()
+		await cmd_ctx.send('User {} got "{}". User "{}" got {}.'.format(user.mention, title2, user2.mention, title1))
+	except BotErr as e:
+		await cmd_ctx.send(e)
+
+@bot.command()
+async def profile(cmd_ctx, *args):
+	try:
+		if len(args) > 1:
+			await cmd_ctx.send('Wrong nunber of arguments. !profile <@user>')
+			return
+
+		user = cmd_ctx.message.author 
+
+		if len(args) == 1:
+			user = await UserConverter().convert(cmd_ctx, args[0])
+
+		check_cmd_ctx(cmd_ctx, Privilege.USER)
+
+		uname = ctx.get_name(user)
+		avatar_url = str(user.avatar_url)
+
+		ucolor = ctx.get_color(user)
+		border_color = int('0x' + ucolor[1:],16)
+		embedVar = Embed(title="", description='', color=border_color)
+		embedVar.set_author(name=uname, icon_url=avatar_url)
+		embedVar.set_thumbnail(url=avatar_url)
+
+		challenges_num = ctx.get_challenges_num(user)
+		if challenges_num > 0:
+			completed_num = ctx.get_completed_num(user)
+			embedVar.add_field(name="Challenges", value=str(challenges_num), inline=True)
+			embedVar.add_field(name="Completed", value=str(completed_num), inline=True)
+
+			avg_user_title_score = ctx.calc_avg_user_title_score(user)
+			avg_score_user_gives = ctx.calc_avg_score_user_gives(user)
+
+			embedVar.add_field(name="Avg. Score of Your Titles", value=f"{avg_user_title_score:.2f}", inline=False)
+			embedVar.add_field(name="Avg. Score You Give", value=f"{avg_score_user_gives:.2f}", inline=True)
+
+			most_watched_users = ctx.find_most_watched_users(user)
+			most_showed_users = ctx.find_most_showed_users(user)
+
+			if len(most_watched_users) > 0:
+				length = max([len(i[0]) for i in most_watched_users]) + 2
+				msg = '\n'.join([f'{i[0]:<{length}}{i[1]}' for i in most_watched_users])
+				embedVar.add_field(name='Watched the most', value=msg, inline=False)
+
+			if len(most_watched_users) > 0:
+				length = max([len(i[0]) for i in most_showed_users]) + 2
+				msg = '\n'.join([f'{i[0]:<{length}}{i[1]}' for i in most_showed_users])
+				embedVar.add_field(name='Sniped the most', value=msg, inline=False)
+		else:
+			embedVar.add_field(name="No Challenges", value='Empty', inline=True)
+
+		karma = ctx.calc_karma(user.id)
+		embedVar.add_field(name="Karma", value=str(round(karma,2)), inline=False)
+
+		karma_logo_url = 'https://i.imgur.com/wscUx1m.png'
+
+		if karma > 200:
+			karma_logo_url = 'https://i.imgur.com/oiypoFr.png'
+		if karma > 300:
+			karma_logo_url = 'https://i.imgur.com/4MOnqxX.png'
+		if karma > 400:
+			karma_logo_url = 'https://i.imgur.com/UJ8yOJ8.png'
+		if karma > 500:
+			karma_logo_url = 'https://i.imgur.com/YoGSX3q.png'
+		if karma > 600:
+			karma_logo_url = 'https://i.imgur.com/DeKg5P5.png'
+		if karma > 700:
+			karma_logo_url = 'https://i.imgur.com/byY9AfE.png'
+		if karma > 800:
+			karma_logo_url = 'https://i.imgur.com/XW4kc66.png'
+		if karma > 900:
+			karma_logo_url = 'https://i.imgur.com/3pPNCGV.png'
+
+		embedVar.set_image(url=karma_logo_url)
+
+		if ctx.is_in_challenge(user):
+			time = ctx.get_end_round_time()
+			embedVar.set_footer(text=f'Round ends on: {time}')
+
+		await cmd_ctx.send(embed=embedVar)
+
+	except BotErr as e:
+		await cmd_ctx.send(e)
+
+@bot.command()
+async def karma(cmd_ctx, *args):
+	try:
+		if len(args) > 0:
+			await cmd_ctx.send('Wrong nunber of arguments. !karma')
+			return
+
+		check_cmd_ctx(cmd_ctx, Privilege.USER)
+
+		users = ctx.users.items()
+
+		user_karma = []
+
+		for user_id, user_info in users:
+			karma = ctx.calc_karma(user_id)
+			user_karma.append((karma, user_info.name))
+
+		user_karma.sort()
+
+		max_nickname_length = 0
+		msg = ['```markdown']
+
+		for i,uk in enumerate(user_karma[::-1]):
+			max_nickname_length = max(max_nickname_length, len(uk[1]))
+
+		max_nickname_length+=2
+		for i,uk in enumerate(user_karma[::-1]):
+			msg.append(f"{str(i+1)+')':<3} {uk[1]:<{max_nickname_length}}{uk[0]:.1f}")
+
+		msg.append('```')
+
+		msg = "\n".join(msg)
+		await cmd_ctx.send(msg)
+
 	except BotErr as e:
 		await cmd_ctx.send(e)
 
@@ -278,7 +493,24 @@ async def extend_round(cmd_ctx, days: int):
 		await cmd_ctx.send(e)
 
 @bot.command()
+async def create_poll(cmd_ctx, *args):
+	check_cmd_ctx(cmd_ctx)
+	if len(args) > 1:
+		return 
+
+	if len(args) > 0:
+		pool = args[0]
+
+	titles = ctx.get_current_titles()
+
+	for title in titles:
+		msg = await cmd_ctx.send(title)
+		await msg.add_reaction("👀")
+	pass
+
+@bot.command()
 async def export(cmd_ctx, ext: str):
+	check_cmd_ctx(cmd_ctx)
 	fname = str(uuid.uuid4())
 	if ext == 'xlsx':
 		fname += '.xlsx'
@@ -324,7 +556,7 @@ if __name__ == '__main__':
 	except Exception as e:
 		print(str(e))
 
-	gsheets_client = pygsheets.authorize('client_secret.json')
-	spreadsheet = gsheets_client.open_by_key('some key')
+	gsheets_client = pygsheets.authorize('<client_secreet.json>')
+	spreadsheet = gsheets_client.open_by_key('<sheets_key>')
 	bot.loop.create_task(check_deadline())
 	bot.run(open('discord_token.txt').read())

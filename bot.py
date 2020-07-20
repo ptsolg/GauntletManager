@@ -556,7 +556,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(str(e))
 
-    gsheets_client = pygsheets.authorize('<client_secreet.json>')
+    gsheets_client = pygsheets.authorize('<client_secret.json>')
     spreadsheet = gsheets_client.open_by_key('<sheets_key>')
     bot.loop.create_task(check_deadline())
     bot.run(open('discord_token.txt').read())

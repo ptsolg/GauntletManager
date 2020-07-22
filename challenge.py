@@ -30,10 +30,10 @@ class TitleInfo:
         return cls(**data)
 
 class RollInfo:
-    def __init__(self, title: str, score=None):
+    def __init__(self, title: str, score=None, progress = None):
         self.title = title
         self.score = score
-
+    
     @classmethod
     def from_json(cls, data):
         return cls(data['title'], data['score'])
@@ -99,13 +99,14 @@ class Pool:
         return cls(data['all_titles'], data['unused_titles'])
 
 class Challenge:
-    def __init__(self, participants, failed_participants, titles, pools, rounds, channel_id):
+    def __init__(self, participants, failed_participants, titles, pools, rounds, channel_id, users_progress):
         self.participants = participants
         self.failed_participants = failed_participants
         self.titles = titles
         self.pools = pools
         self.rounds = rounds
         self.channel_id = channel_id
+        self.users_progress = users_progress
 
     def pool(self, pool):
         if pool not in self.pools:
@@ -149,6 +150,15 @@ class Challenge:
         if participant.id in self.failed_participants:
             raise BotErr('User {} has failed this challenge.'.format(participant.mention))
 
+    def clear_progress(self):
+        self.users_progress = { p: None for p in self.participants }
+
+    def set_progress(self, user, progress):
+        self.users_progress[user] = progress
+
+    def get_progress(self, user):
+        return self.users_progress[user]
+
     @classmethod
     def from_json(cls, data):
         participants = list(map(int, data['participants']))
@@ -156,7 +166,11 @@ class Challenge:
         titles = dict(map(lambda kv: (kv[0], TitleInfo.from_json(kv[1])), data['titles'].items()))
         pools = dict(map(lambda kv: (kv[0], Pool.from_json(kv[1])), data['pools'].items()))
         rounds = list(map(Round.from_json, data['rounds']))
-        return cls(participants, failed_participants, titles, pools, rounds, int(data['channel_id']))
+        if 'users_progress' in data:
+            users_progress = dict(map(lambda kv: (int(kv[0]), kv[1]), data['users_progress'].items()))
+        else:
+            users_progress = { p: None for p in participants }
+        return cls(participants, failed_participants, titles, pools, rounds, int(data['channel_id']), users_progress)
 
 class Context:
     def __init__(self, users, challenges, current_challenge=None):
@@ -194,7 +208,8 @@ class Context:
             titles={},
             pools={'main': main},
             rounds=[],
-            channel_id=channel_id
+            channel_id=channel_id,
+            users_progress={}
         )
         self.current_challenge = name
 
@@ -380,6 +395,30 @@ class Context:
             if old_title in pool.unused_titles:
                 pool.unused_titles[pool.unused_titles.index(old_title)] = new_title
 
+    def clear_progress(self):
+        self.current().clear_progress()
+    
+    def set_progress(self, user, progress):
+        if user.id in self.current().participants:
+            self.current().set_progress(user.id, progress)
+        else:
+            raise BotErr('Bad user')
+
+    def get_progress(self, user):
+        return self.current().get_progress(user.id)
+    
+    def get_all_progress(self):
+        users_progress = self.current().users_progress
+        rolls = self.current().last_round().rolls
+        ans = {}
+        for participant, progress in users_progress.items():
+            score = rolls[participant].score
+            if score:
+                progress = f'Done: {score}' 
+            ans[self.users[participant].name] = progress
+
+        return ans
+
     def start_round(self, timedelta):
         challenge = self.current()
         main = challenge.pools['main']
@@ -400,6 +439,8 @@ class Context:
         begin = datetime.now()
         end = begin + timedelta
         challenge.rounds.append(Round(rolls, begin.strftime(Round.TIME_FMT), end.strftime(Round.TIME_FMT), is_finished=False))
+
+        self.clear_progress()
 
     def end_round(self):
         challenge = self.current()
@@ -453,7 +494,6 @@ class Context:
                 pool.sort()
                 break
             
-
         return new_title
 
     def set_title(self, user, title):

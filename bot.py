@@ -414,32 +414,72 @@ async def karma(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx, Privilege.USER)
 
         users = ctx.users.items()
-
         user_karma = []
-
         for user_id, user_info in users:
             karma = ctx.calc_karma(user_id)
             user_karma.append((karma, user_info.name))
-
         user_karma.sort()
 
         max_nickname_length = 0
         msg = ['```markdown']
-
         for i,uk in enumerate(user_karma[::-1]):
             max_nickname_length = max(max_nickname_length, len(uk[1]))
 
         max_nickname_length+=2
         for i,uk in enumerate(user_karma[::-1]):
             msg.append(f"{str(i+1)+')':<3} {uk[1]:<{max_nickname_length}}{uk[0]:.1f}")
-
         msg.append('```')
-
         msg = "\n".join(msg)
+
         await cmd_ctx.send(msg)
 
     except BotErr as e:
         await cmd_ctx.send(e)
+
+@bot.command()
+async def progress(cmd_ctx, *args):
+    try:
+        if len(args) > 2:
+            await cmd_ctx.send('Wrong nunber of arguments. !progress <@user> <x/y>')
+            return
+        
+        user = cmd_ctx.message.author
+        privilate_level = Privilege.USER
+        command_index_offset = 0
+        if len(args) > 1:
+            user = await UserConverter().convert(cmd_ctx, args[0]) 
+            privilate_level = Privilege.ADMIN
+            command_index_offset += 1
+        
+        check_cmd_ctx(cmd_ctx, privilate_level)
+        if len(args) > 0:
+            prog = args[command_index_offset]
+            
+            if re.match(r'^[0-9]+?\/[0-9]+?$', prog) is None and len(prog) > 5:
+                return await cmd_ctx.send('Invalid progress "{}".'.format(prog))
+            
+            ctx.set_progress(user, prog)
+        
+        all_progress = ctx.get_all_progress()
+
+        msg = ['```']
+        max_length = max([ len(participant) for participant in all_progress.keys()])+2
+        for participant, prog in sorted(all_progress.items()):
+            if prog is None:
+                prog = "None"        
+            msg.append(f'{participant:<{max_length}} {prog}')
+    
+        msg.append('```')
+        msg = '\n'.join(msg)
+
+        await cmd_ctx.send(msg)
+        save() #todo: maybe move it somewhere when it doesn't proc everytime it shows the progress
+    except BotErr as e:
+        await cmd_ctx.send(e)
+
+@bot.command()
+async def prog(cmd_ctx, *args):
+    await progress(cmd_ctx, *args)
 
 @bot.command()
 async def rename_title(cmd_ctx, old_title: str, new_title: str):

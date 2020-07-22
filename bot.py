@@ -563,6 +563,17 @@ async def remove_pool(cmd_ctx, pool: str):
         await cmd_ctx.send(e)
 
 @bot.command()
+async def rename_pool(cmd_ctx, pool: str, new_name: str):
+    '''!rename_pool pool new_name\n[Admin only] Rename pool as a new_name'''
+    try:
+        check_cmd_ctx(cmd_ctx)
+        ctx.rename_pool(pool, new_name)
+        save()
+        await cmd_ctx.send(f'Pool "{pool}" has been renamed to "{new_name}"')
+    except BotErr as e:
+        await cmd_ctx.send(e)
+
+@bot.command()
 async def extend_round(cmd_ctx, days: int):
     '''!extend_round days\n[Admin only] Extends the current round by N days'''
     try:

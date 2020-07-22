@@ -179,7 +179,7 @@ class Context:
         self.current_challenge = current_challenge
 
     def to_json(self):
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=1)
 
     @classmethod
     def from_json(cls, data):
@@ -230,6 +230,14 @@ class Context:
         challenge.check_not_started()
         if pool not in challenge.pools:
             raise BotErr('Pool "{}" does not exist.'.format(pool))
+        del challenge.pools[pool]
+
+    def rename_pool(self, pool, new_name):
+        challenge = self.current()
+        challenge.check_not_started()
+        if pool not in challenge.pools:
+            raise BotErr('Pool "{}" does not exist.'.format(pool))
+        challenge.pools[new_name] = challenge.pools[pool] 
         del challenge.pools[pool]
 
     def add_user(self, user):

@@ -46,6 +46,7 @@ def load():
 
 @bot.command()
 async def start_challenge(cmd_ctx, name: str):
+    '''!start_challenge name\nStarts a new challenge with a given name'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.start_challenge(name, cmd_ctx.message.channel.id)
@@ -56,6 +57,7 @@ async def start_challenge(cmd_ctx, name: str):
 
 @bot.command()
 async def end_challenge(cmd_ctx):
+    '''!end_challenge\n[Admin only] Ends current challenge'''
     try:
         check_cmd_ctx(cmd_ctx)
         challenge = ctx.current_challenge
@@ -67,6 +69,7 @@ async def end_challenge(cmd_ctx):
 
 @bot.command()
 async def add_pool(cmd_ctx, name: str):
+    '''!add_pool pool_name\n[Admin only] Adds a new pool for the challenge'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.add_pool(name)
@@ -77,6 +80,7 @@ async def add_pool(cmd_ctx, name: str):
 
 @bot.command()
 async def add_user(cmd_ctx, user: UserConverter):
+    '''!add_user @user\n[Admin only] Adds a new user to the challenge'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.add_user(user)
@@ -87,6 +91,7 @@ async def add_user(cmd_ctx, user: UserConverter):
 
 @bot.command()
 async def set_color(cmd_ctx, *args):
+    '''!set_color <@user> color\nSets a new color(in hex) for a specified user'''
     try:
         privilege_level = Privilege.USER
         user = cmd_ctx.message.author
@@ -112,6 +117,7 @@ async def set_color(cmd_ctx, *args):
 
 @bot.command()
 async def set_name(cmd_ctx, *args):
+    '''!set_name <@user> name\nSets a new name for a specified user'''
     try:
         if len(args) > 2:
             await cmd_ctx.send('Wrong nunber of arguments. !set_name <@user> name.')
@@ -146,6 +152,7 @@ async def set_name(cmd_ctx, *args):
 
 @bot.command()
 async def sync(cmd_ctx):
+    '''!sync\nSyncs with google sheets doc'''
     check_cmd_ctx(cmd_ctx, Privilege.USER)
     XlsxExporter(GoogleSheetsWriter(spreadsheet), ctx).export()
     await cmd_ctx.send('Done.')
@@ -167,6 +174,7 @@ async def _add_title(cmd_ctx, pool: str, proposer: User, title_name: str, title_
 
 @bot.command()
 async def add_title(cmd_ctx, *args):
+    '''!add_title <@user> title_name\nAdds a title for specified user.'''
     if len(args) < 2 or len(args) > 4:
         return
 
@@ -190,6 +198,7 @@ async def add_title(cmd_ctx, *args):
 
 @bot.command()
 async def set_title(cmd_ctx, *args):
+    '''!set_title <@user> <title_name>\nSets a new title for a specified user'''
     if len(args) != 2:
         await cmd_ctx.send('Invalid number of arguments. Usage: !set_title <@user> <"title_name">')
         return
@@ -204,6 +213,7 @@ async def set_title(cmd_ctx, *args):
 
 @bot.command()
 async def start_round(cmd_ctx, length: int):
+    '''!start_round length\nStarts a new round of a specified length'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.start_round(timedelta(days=length))
@@ -224,6 +234,7 @@ async def _end_round(channel):
 
 @bot.command()
 async def end_round(cmd_ctx):
+    '''@end_round\nEnds current round'''
     try:
         check_cmd_ctx(cmd_ctx)
         await _end_round(cmd_ctx.message.channel)
@@ -232,6 +243,7 @@ async def end_round(cmd_ctx):
 
 @bot.command()
 async def rate(cmd_ctx, *args):
+    '''!rate <@user> score\nRates user's title with a given score'''
     try:
         user = cmd_ctx.message.author
         score = 0.0
@@ -263,6 +275,7 @@ async def rate(cmd_ctx, *args):
 
 @bot.command()
 async def reroll(cmd_ctx, *args):
+    '''!reroll @user <pool=main>\nReroll titles for a user from a specified pool'''
     try:
         user = cmd_ctx.message.author
         pool = 'main'
@@ -282,6 +295,7 @@ async def reroll(cmd_ctx, *args):
 
 @bot.command()
 async def random_swap(cmd_ctx, *args):
+    '''!random_swap @user @candidate1 <@candidate2...>\nSwaps user's title with random candidate's title'''
     try:
         if len(args) < 2:
             await cmd_ctx.send('Wrong nunber of arguments. !random_swap @user @candidate1 <@candidate2...>')
@@ -303,6 +317,7 @@ async def random_swap(cmd_ctx, *args):
 
 @bot.command()
 async def swap(cmd_ctx, *args):
+    '''!swap @user1 @user2\nSwaps titles between two users'''
     try:
         if len(args) != 2:
             await cmd_ctx.send('Wrong nunber of arguments. !swap @user1 @user2.')
@@ -323,6 +338,7 @@ async def swap(cmd_ctx, *args):
 
 @bot.command()
 async def profile(cmd_ctx, *args):
+    '''!profile <@user>\nDisplays profile of a user'''
     try:
         if len(args) > 1:
             await cmd_ctx.send('Wrong nunber of arguments. !profile <@user>')
@@ -405,12 +421,9 @@ async def profile(cmd_ctx, *args):
         await cmd_ctx.send(e)
 
 @bot.command()
-async def karma(cmd_ctx, *args):
+async def karma(cmd_ctx):
+    '''!karma\nShows karma table'''
     try:
-        if len(args) > 0:
-            await cmd_ctx.send('Wrong nunber of arguments. !karma')
-            return
-
         check_cmd_ctx(cmd_ctx, Privilege.USER)
 
         users = ctx.users.items()
@@ -421,7 +434,7 @@ async def karma(cmd_ctx, *args):
         user_karma.sort()
 
         max_nickname_length = 0
-        msg = ['```markdown']
+        msg = ['```']
         for i,uk in enumerate(user_karma[::-1]):
             max_nickname_length = max(max_nickname_length, len(uk[1]))
 
@@ -438,6 +451,7 @@ async def karma(cmd_ctx, *args):
 
 @bot.command()
 async def progress(cmd_ctx, *args):
+    '''!progress <@user> <x/y>\nShows/Updates current progress.'''
     try:
         if len(args) > 2:
             await cmd_ctx.send('Wrong number of arguments. !progress <@user> <x/y>')
@@ -479,10 +493,12 @@ async def progress(cmd_ctx, *args):
 
 @bot.command()
 async def prog(cmd_ctx, *args):
+    '''!prog\nShortcut for !progress'''
     await progress(cmd_ctx, *args)
 
 @bot.command()
 async def rename_title(cmd_ctx, old_title: str, new_title: str):
+    '''!rename_title old_name new_name\nRenames a title'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.rename_title(old_title, new_title)
@@ -493,6 +509,7 @@ async def rename_title(cmd_ctx, old_title: str, new_title: str):
 
 @bot.command()
 async def remove_user(cmd_ctx, user: UserConverter):
+    '''!remove_user user\nRemoves a specified user'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_user(user)
@@ -503,6 +520,7 @@ async def remove_user(cmd_ctx, user: UserConverter):
 
 @bot.command()
 async def remove_title(cmd_ctx, title: str):
+    '''!remove_titles tilte\nRemoves a specified title'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_title(title)
@@ -513,6 +531,7 @@ async def remove_title(cmd_ctx, title: str):
 
 @bot.command()
 async def remove_pool(cmd_ctx, pool: str):
+    '''!remove_pool pool\nRemoves a specifed pool'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_pool(pool)
@@ -523,6 +542,7 @@ async def remove_pool(cmd_ctx, pool: str):
 
 @bot.command()
 async def extend_round(cmd_ctx, days: int):
+    '''!extend_round days\nExtends the current round by N days'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.extend_round(timedelta(days=days))
@@ -533,16 +553,11 @@ async def extend_round(cmd_ctx, days: int):
         await cmd_ctx.send(e)
 
 @bot.command()
-async def create_poll(cmd_ctx, *args):
+async def create_poll(cmd_ctx):
+    '''!create_poll\n[Admin only] Creates a poll of all titles to vote for which ones people have seen'''
     check_cmd_ctx(cmd_ctx)
-    if len(args) > 1:
-        return 
-
-    if len(args) > 0:
-        pool = args[0]
 
     titles = ctx.get_current_titles()
-
     for title in titles:
         msg = await cmd_ctx.send(title)
         await msg.add_reaction("👀")
@@ -550,6 +565,8 @@ async def create_poll(cmd_ctx, *args):
 
 @bot.command()
 async def export(cmd_ctx, ext: str):
+    '''!export <json/xlsx>\nExports data'''
+
     check_cmd_ctx(cmd_ctx)
     fname = str(uuid.uuid4())
     if ext == 'xlsx':
@@ -566,17 +583,21 @@ async def export(cmd_ctx, ext: str):
 
 @bot.command()
 async def help(cmd_ctx):
-    await cmd_ctx.send('''
-        !start_challenge name
-        !add_pool name
-        !add_user @user
-        !add_title pool @user title_name title_url
-        !start_round days
-        !end_round
-        !rate @user score
-        !reroll @user pool
-        !export
-    ''')
+    '''!help\nPrints this message'''
+
+    embed = Embed(title="Help", description='', color=0x0000000)
+    commands=[]
+    for command in bot.commands:
+        if not command.help:
+            continue
+
+        (name, desc) = command.help.split('\n')
+        commands.append((name, desc))
+        
+    for name, desc in sorted(commands):
+        embed.add_field(name=name, value=desc, inline=False)
+    
+    await cmd_ctx.send(embed=embed)
 
 async def check_deadline():
     await bot.wait_until_ready()

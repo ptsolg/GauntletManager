@@ -133,7 +133,7 @@ async def set_name(cmd_ctx, *args):
             await cmd_ctx.send('Name is too long. Max is {} characters.'.format(max_length))
             return
 
-        if len(name) != len([c for c in name if c.isalnum()]):
+        if re.match(r'^[0-9a-zа-яA-ZА-Я_\-]+$', name) is None:
             await cmd_ctx.send('Error: Bad symbols in your name.')
             return
 
@@ -440,7 +440,7 @@ async def karma(cmd_ctx, *args):
 async def progress(cmd_ctx, *args):
     try:
         if len(args) > 2:
-            await cmd_ctx.send('Wrong nunber of arguments. !progress <@user> <x/y>')
+            await cmd_ctx.send('Wrong number of arguments. !progress <@user> <x/y>')
             return
         
         user = cmd_ctx.message.author
@@ -596,7 +596,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(str(e))
 
-    gsheets_client = pygsheets.authorize('<client_secret.json>')
-    spreadsheet = gsheets_client.open_by_key('<sheets_key>')
+    gsheets_client = pygsheets.authorize('client_secret.json')
+    spreadsheet = gsheets_client.open_by_key(open('sheets_key.txt').read())
     bot.loop.create_task(check_deadline())
     bot.run(open('discord_token.txt').read())

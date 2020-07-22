@@ -51,7 +51,7 @@ async def start_challenge(cmd_ctx, name: str):
         check_cmd_ctx(cmd_ctx)
         ctx.start_challenge(name, cmd_ctx.message.channel.id)
         save()
-        await cmd_ctx.send('Challenge "{}" has been created.'.format(name))
+        await cmd_ctx.send(f'Challenge "{name}" has been created.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -63,7 +63,7 @@ async def end_challenge(cmd_ctx):
         challenge = ctx.current_challenge
         ctx.end_challenge()
         save()
-        await cmd_ctx.send('Challenge "{}" has been ended.'.format(challenge))
+        await cmd_ctx.send(f'Challenge "{challenge}" has been ended.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -74,7 +74,7 @@ async def add_pool(cmd_ctx, name: str):
         check_cmd_ctx(cmd_ctx)
         ctx.add_pool(name)
         save()
-        await cmd_ctx.send('Pool "{}" has been created.'.format(name))
+        await cmd_ctx.send(f'Pool "{name}" has been created.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -85,7 +85,7 @@ async def add_user(cmd_ctx, user: UserConverter):
         check_cmd_ctx(cmd_ctx)
         ctx.add_user(user)
         save()
-        await cmd_ctx.send('User {} has been added.'.format(user.mention))
+        await cmd_ctx.send(f'User {user.mention} has been added.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -104,11 +104,11 @@ async def set_color(cmd_ctx, *args):
         elif len(args) == 1:
             color = args[0]
         else:
-            return await cmd_ctx.send('Invalid number of arguments({}). !set_color <user> color'.format(len(args)))
+            return await cmd_ctx.send(f'Invalid number of arguments({len(args)}). !set_color <user> color')
 
         check_cmd_ctx(cmd_ctx, privilege_level)
         if re.match(r'^#[a-fA-F0-9]{6}$', color) is None:
-            return await cmd_ctx.send('Invalid color "{}".'.format(color))
+            return await cmd_ctx.send(f'Invalid color "{color}".')
         ctx.set_color(user, color)
         save()
         await cmd_ctx.send('Color has been changed.')
@@ -136,7 +136,7 @@ async def set_name(cmd_ctx, *args):
 
         max_length = 32
         if len(name) > max_length:
-            await cmd_ctx.send('Name is too long. Max is {} characters.'.format(max_length))
+            await cmd_ctx.send(f'Name is too long. Max is {max_length} characters.')
             return
 
         if re.match(r'^[0-9a-zа-яA-ZА-Я_\-]+$', name) is None:
@@ -146,7 +146,7 @@ async def set_name(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx, privilege_level)
         ctx.set_name(user, name)
         save()
-        await cmd_ctx.send('{} got "{}" as a new name.'.format(user.mention, name))
+        await cmd_ctx.send(f'{user.mention} got "{name}" as a new name.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -168,7 +168,7 @@ async def _add_title(cmd_ctx, pool: str, proposer: User, title_name: str, title_
         check_cmd_ctx(cmd_ctx)
         ctx.add_title(pool, proposer, title_name, title_url)
         save()
-        await cmd_ctx.send('Title "{}" has been added to "{}" pool.'.format(title_name, pool))
+        await cmd_ctx.send(f'Title "{title_name}" has been added to "{pool}" pool.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -208,7 +208,7 @@ async def set_title(cmd_ctx, *args):
     title_name = args[1]
 
     ctx.set_title(user, title_name)
-    await cmd_ctx.send('Title "{}" has been assigned to {}'.format(title_name, user.mention))
+    await cmd_ctx.send(f'Title "{title_name}" has been assigned to {user.mention}')
 
 @bot.command()
 async def start_round(cmd_ctx, length: int):
@@ -241,7 +241,7 @@ async def start_round(cmd_ctx, length: int):
             await asyncio.sleep(1)
         
         rounds = ctx.current().rounds
-        await cmd_ctx.send('Round {} ({}-{}) starts right now.'.format(len(rounds) - 1, rounds[-1].begin, rounds[-1].end))
+        await cmd_ctx.send(f'Round {len(rounds) - 1} ({rounds[-1].begin}-{rounds[-1].end}) starts right now.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -250,7 +250,7 @@ async def _end_round(channel):
         ctx.end_round()
         save()
         rounds = ctx.current().rounds
-        await channel.send('Round {} has been ended.'.format(len(rounds) - 1))
+        await channel.send(f'Round {len(rounds) - 1} has been ended.')
     except BotErr as e:
         await channel.send(e)
 
@@ -271,7 +271,7 @@ async def rate(cmd_ctx, *args):
         score = 0.0
 
         if len(args) < 1 or len(args) > 2:
-            await cmd_ctx.send('Invalid number of arguments({}). !rate <@user> score'.format(len(args)))
+            await cmd_ctx.send(f'Invalid number of arguments({len(args)}). !rate <@user> score')
             return
 
         privilege_level = Privilege.USER
@@ -291,7 +291,7 @@ async def rate(cmd_ctx, *args):
         ctx.rate(user, score)
         save()
         title = ctx.current().last_round().rolls[user.id].title
-        await cmd_ctx.send('User {} gave {} to "{}".'.format(user.mention, score, title))
+        await cmd_ctx.send(f'User {user.mention} gave {score} to "{title}".')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -311,7 +311,7 @@ async def reroll(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx)
         title = ctx.reroll(user, pool)
         save()
-        await cmd_ctx.send('User {} rolled "{}" from "{}" pool.'.format(user.mention, title, pool))
+        await cmd_ctx.send(f'User {user.mention} rolled "{title}" from "{pool}" pool.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -333,7 +333,7 @@ async def random_swap(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx)
         title1, title2 = ctx.swap(user, user2)
         save()
-        await cmd_ctx.send('User {} got "{}". User "{}" got {}.'.format(user.mention, title2, user2.mention, title1))
+        await cmd_ctx.send(f'User {user.mention} got "{title2}". User "{user2.mention}" got {title1}.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -354,7 +354,7 @@ async def swap(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx)
         title1, title2 = ctx.swap(user, user2)
         save()
-        await cmd_ctx.send('User {} got "{}". User "{}" got {}.'.format(user.mention, title2, user2.mention, title1))
+        await cmd_ctx.send(f'User {user.mention} got "{title2}". User "{user2.mention}" got {title1}.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -492,7 +492,7 @@ async def progress(cmd_ctx, *args):
             prog = args[command_index_offset]
             
             if re.match(r'^[0-9]+?\/[0-9]+?$', prog) is None and len(prog) > 5:
-                return await cmd_ctx.send('Invalid progress "{}".'.format(prog))
+                return await cmd_ctx.send(f'Invalid progress "{prog}".')
             
             ctx.set_progress(user, prog)
         
@@ -525,7 +525,7 @@ async def rename_title(cmd_ctx, old_title: str, new_title: str):
         check_cmd_ctx(cmd_ctx)
         ctx.rename_title(old_title, new_title)
         save()
-        await cmd_ctx.send('Title {} has been renamed to {}.'.format(old_title, new_title))
+        await cmd_ctx.send(f'Title {old_title} has been renamed to {new_title}.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -536,7 +536,7 @@ async def remove_user(cmd_ctx, user: UserConverter):
         check_cmd_ctx(cmd_ctx)
         ctx.remove_user(user)
         save()
-        await cmd_ctx.send('User {} has been removed.'.format(user.mention))
+        await cmd_ctx.send(f'User {user.mention} has been removed.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -547,7 +547,7 @@ async def remove_title(cmd_ctx, title: str):
         check_cmd_ctx(cmd_ctx)
         ctx.remove_title(title)
         save()
-        await cmd_ctx.send('Title "{}" has been removed'.format(title))
+        await cmd_ctx.send(f'Title "{title}" has been removed')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -558,7 +558,7 @@ async def remove_pool(cmd_ctx, pool: str):
         check_cmd_ctx(cmd_ctx)
         ctx.remove_pool(pool)
         save()
-        await cmd_ctx.send('Pool "{}" has been removed'.format(pool))
+        await cmd_ctx.send(f'Pool "{pool}" has been removed')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -581,7 +581,7 @@ async def extend_round(cmd_ctx, days: int):
         ctx.extend_round(timedelta(days=days))
         save()
         rounds = ctx.current().rounds
-        await cmd_ctx.send('Round {} ends at {}.'.format(len(rounds) - 1, rounds[-1].end))
+        await cmd_ctx.send(f'Round {len(rounds) - 1} ends at {rounds[-1].end}.')
     except BotErr as e:
         await cmd_ctx.send(e)
 
@@ -608,7 +608,7 @@ async def export(cmd_ctx, ext: str):
         fname += '.json'
         open(fname, 'w').write(ctx.to_json())
     else:
-        return await cmd_ctx.send('Unknown format "{}" (use xlsx or json).'.format(ext))
+        return await cmd_ctx.send(f'Unknown format "{ext}" (use xlsx or json).')
 
     await cmd_ctx.send(file=File(fname))
     os.remove(fname)

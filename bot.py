@@ -46,47 +46,52 @@ def load():
 
 @bot.command()
 async def start_challenge(cmd_ctx, name: str):
+    '''!start_challenge name\n[Admin only] Starts a new challenge with a given name'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.start_challenge(name, cmd_ctx.message.channel.id)
         save()
-        await cmd_ctx.send('Challenge "{}" has been created.'.format(name))
+        await cmd_ctx.send(f'Challenge "{name}" has been created.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{start_challenge.help}")
 
 @bot.command()
 async def end_challenge(cmd_ctx):
+    '''!end_challenge\n[Admin only] Ends current challenge'''
     try:
         check_cmd_ctx(cmd_ctx)
         challenge = ctx.current_challenge
         ctx.end_challenge()
         save()
-        await cmd_ctx.send('Challenge "{}" has been ended.'.format(challenge))
+        await cmd_ctx.send(f'Challenge "{challenge}" has been ended.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{end_challenge.help}")
 
 @bot.command()
 async def add_pool(cmd_ctx, name: str):
+    '''!add_pool pool_name\n[Admin only] Adds a new pool for the challenge'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.add_pool(name)
         save()
-        await cmd_ctx.send('Pool "{}" has been created.'.format(name))
+        await cmd_ctx.send(f'Pool "{name}" has been created.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{add_pool.help}")
 
 @bot.command()
 async def add_user(cmd_ctx, user: UserConverter):
+    '''!add_user @user\n[Admin only] Adds a new user to the challenge'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.add_user(user)
         save()
-        await cmd_ctx.send('User {} has been added.'.format(user.mention))
+        await cmd_ctx.send(f'User {user.mention} has been added.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{add_user.help}")
 
 @bot.command()
 async def set_color(cmd_ctx, *args):
+    '''!set_color <@user> color\nSets a new color(in hex) for a specified user'''
     try:
         privilege_level = Privilege.USER
         user = cmd_ctx.message.author
@@ -99,19 +104,20 @@ async def set_color(cmd_ctx, *args):
         elif len(args) == 1:
             color = args[0]
         else:
-            return await cmd_ctx.send('Invalid number of arguments({}). !set_color <user> color'.format(len(args)))
+            return await cmd_ctx.send(f'Invalid number of arguments({len(args)}). !set_color <user> color')
 
         check_cmd_ctx(cmd_ctx, privilege_level)
         if re.match(r'^#[a-fA-F0-9]{6}$', color) is None:
-            return await cmd_ctx.send('Invalid color "{}".'.format(color))
+            return await cmd_ctx.send(f'Invalid color "{color}".')
         ctx.set_color(user, color)
         save()
         await cmd_ctx.send('Color has been changed.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{set_color.help}")
 
 @bot.command()
 async def set_name(cmd_ctx, *args):
+    '''!set_name <@user> name\nSets a new name for a specified user'''
     try:
         if len(args) > 2:
             await cmd_ctx.send('Wrong nunber of arguments. !set_name <@user> name.')
@@ -130,22 +136,23 @@ async def set_name(cmd_ctx, *args):
 
         max_length = 32
         if len(name) > max_length:
-            await cmd_ctx.send('Name is too long. Max is {} characters.'.format(max_length))
+            await cmd_ctx.send(f'Name is too long. Max is {max_length} characters.')
             return
 
-        if len(name) != len([c for c in name if c.isalnum()]):
+        if re.match(r'^[0-9a-zа-яA-ZА-Я_\-]+$', name) is None:
             await cmd_ctx.send('Error: Bad symbols in your name.')
             return
 
         check_cmd_ctx(cmd_ctx, privilege_level)
         ctx.set_name(user, name)
         save()
-        await cmd_ctx.send('{} got "{}" as a new name.'.format(user.mention, name))
+        await cmd_ctx.send(f'{user.mention} got "{name}" as a new name.')
     except BotErr as e:
-        await cmd_ctx.send(e)
-
+        await cmd_ctx.send(f"{e}\nUsage:\n{set_name.help}")
+        
 @bot.command()
 async def sync(cmd_ctx):
+    '''!sync\nSyncs with google sheets doc'''
     check_cmd_ctx(cmd_ctx, Privilege.USER)
     XlsxExporter(GoogleSheetsWriter(spreadsheet), ctx).export()
     await cmd_ctx.send('Done.')
@@ -156,88 +163,110 @@ async def user_or_none(cmd_ctx, s):
     except:
         return None
 
-async def _add_title(cmd_ctx, pool: str, proposer: User, title_name: str, title_url: str):
-    try:
-        check_cmd_ctx(cmd_ctx)
-        ctx.add_title(pool, proposer, title_name, title_url)
-        save()
-        await cmd_ctx.send('Title "{}" has been added to "{}" pool.'.format(title_name, pool))
-    except BotErr as e:
-        await cmd_ctx.send(e)
-
 @bot.command()
 async def add_title(cmd_ctx, *args):
-    if len(args) < 2 or len(args) > 4:
-        return
-
-    pool = 'main'
-    title_url = None
-    user = await user_or_none(cmd_ctx, args[0])
-    title_name = args[1]
-
-    if user is None:
-        if len(args) < 3:
+    '''!add_title <@user> title_name\n[Admin only] Adds a title for specified user.'''
+    try:
+        if len(args) < 2 or len(args) > 4:
             return
-        if len(args) == 4:
-            title_url = args[-1]
-        pool = args[0]
-        title_name = args[2]
-        user = await UserConverter().convert(cmd_ctx, args[1])
-    elif len(args) == 3:
-        title_url = args[-1]
 
-    await _add_title(cmd_ctx, pool, user, title_name, title_url)
+        pool = 'main'
+        title_url = None
+        user = await user_or_none(cmd_ctx, args[0])
+        title_name = args[1]
+
+        if user is None:
+            if len(args) < 3:
+                return
+            if len(args) == 4:
+                title_url = args[-1]
+            pool = args[0]
+            title_name = args[2]
+            user = await UserConverter().convert(cmd_ctx, args[1])
+        elif len(args) == 3:
+            title_url = args[-1]
+
+        check_cmd_ctx(cmd_ctx)
+        ctx.add_title(pool, user, title_name, title_url)
+        save()
+        await cmd_ctx.send(f'Title "{title_name}" has been added to "{pool}" pool.')
+
+    except BotErr as e:
+        await cmd_ctx.send(f"{e}\nUsage:\n{add_title.help}")
 
 @bot.command()
 async def set_title(cmd_ctx, *args):
-    if len(args) != 2:
-        await cmd_ctx.send('Invalid number of arguments. Usage: !set_title <@user> <"title_name">')
-        return
+    '''!set_title <@user> <title_name>\n[Admin only] Sets a new title for a specified user'''
+    try:
+        if len(args) != 2:
+            await cmd_ctx.send('Invalid number of arguments. Usage: !set_title <@user> <"title_name">')
+            return
 
-    check_cmd_ctx(cmd_ctx)
-    user = await user_or_none(cmd_ctx, args[0])
-    title_name = args[1]
+        check_cmd_ctx(cmd_ctx)
+        user = await user_or_none(cmd_ctx, args[0])
+        title_name = args[1]
 
-    ctx.set_title(user, title_name)
-    await cmd_ctx.send('Title "{}" has been assigned to {}'.format(title_name, user.mention))
-
+        ctx.set_title(user, title_name)
+        await cmd_ctx.send(f'Title "{title_name}" has been assigned to {user.mention}')
+    except BotErr as e:
+        await cmd_ctx.send(f"{e}\nUsage:\n{set_title.help}")
 
 @bot.command()
 async def start_round(cmd_ctx, length: int):
+    '''!start_round length\n[Admin only] Starts a new round of a specified length'''
     try:
-        check_cmd_ctx(cmd_ctx)
-        ctx.start_round(timedelta(days=length))
-        save()
-        rounds = ctx.current().rounds
-        await cmd_ctx.send('Round {} ({}-{}) starts right now.'.format(len(rounds) - 1, rounds[-1].begin, rounds[-1].end))
-    except BotErr as e:
-        await cmd_ctx.send(e)
 
-async def _end_round(channel):
-    try:
-        ctx.end_round()
+        def gen_roll_info(titles, max_length):
+            msg = ['```fix']
+            for p,r in sorted(titles.items()):
+                msg.append(f"{p:<{max_length}} {r}")
+            msg.append('```')
+            return '\n'.join(msg)
+        
+        check_cmd_ctx(cmd_ctx)
+
+        rolls = ctx.start_round(timedelta(days=length))
         save()
+
+        max_length = max([ len(a) for a in rolls.keys() ]) + 2
+        roll_info = { p: '???' for p in rolls.keys() }
+
+        msg = gen_roll_info(roll_info, max_length)
+        sent = await cmd_ctx.send(msg)
+        await asyncio.sleep(2)
+
+        for i in sorted(rolls.keys()):
+            roll_info[i] = rolls[i].title
+            msg = gen_roll_info(roll_info, max_length)
+            await sent.edit(content=msg)
+            await asyncio.sleep(1)
+        
         rounds = ctx.current().rounds
-        await channel.send('Round {} has been ended.'.format(len(rounds) - 1))
+        await cmd_ctx.send(f'Round {len(rounds) - 1} ({rounds[-1].begin}-{rounds[-1].end}) starts right now.')
     except BotErr as e:
-        await channel.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{start_round.help}")
 
 @bot.command()
 async def end_round(cmd_ctx):
+    '''@end_round\nEnds current round'''
     try:
         check_cmd_ctx(cmd_ctx)
-        await _end_round(cmd_ctx.message.channel)
+        ctx.end_round()
+        save()
+        rounds = ctx.current().rounds
+        await channel.send(f'Round {len(rounds) - 1} has been ended.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{end_round.help}")
 
 @bot.command()
 async def rate(cmd_ctx, *args):
+    '''!rate <@user> score\nRates user's title with a given score'''
     try:
         user = cmd_ctx.message.author
         score = 0.0
 
         if len(args) < 1 or len(args) > 2:
-            await cmd_ctx.send('Invalid number of arguments({}). !rate <@user> score'.format(len(args)))
+            await cmd_ctx.send(f'Wrong nunber of arguments.\n{rate.help}')
             return
 
         privilege_level = Privilege.USER
@@ -257,15 +286,20 @@ async def rate(cmd_ctx, *args):
         ctx.rate(user, score)
         save()
         title = ctx.current().last_round().rolls[user.id].title
-        await cmd_ctx.send('User {} gave {} to "{}".'.format(user.mention, score, title))
+        await cmd_ctx.send(f'User {user.mention} gave {score} to "{title}".')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{rate.help}")
 
 @bot.command()
 async def reroll(cmd_ctx, *args):
+    '''!reroll @user <pool=main>\n[Admin only] Reroll titles for a user from a specified pool'''
     try:
         user = cmd_ctx.message.author
         pool = 'main'
+
+        if len(args) > 2:
+            await cmd_ctx.send(f'Wrong nunber of arguments.\n{reroll.help}')
+            return
 
         if len(args) > 0:
             user = await UserConverter().convert(cmd_ctx, args[0])
@@ -276,15 +310,16 @@ async def reroll(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx)
         title = ctx.reroll(user, pool)
         save()
-        await cmd_ctx.send('User {} rolled "{}" from "{}" pool.'.format(user.mention, title, pool))
+        await cmd_ctx.send(f'User {user.mention} rolled "{title}" from "{pool}" pool.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{reroll.help}")
 
 @bot.command()
 async def random_swap(cmd_ctx, *args):
+    '''!random_swap @user @candidate1 <@candidate2...>\n[Admin only] Swaps user's title with random candidate's title'''
     try:
         if len(args) < 2:
-            await cmd_ctx.send('Wrong nunber of arguments. !random_swap @user @candidate1 <@candidate2...>')
+            await cmd_ctx.send(f'Wrong nunber of arguments.\n{random_swap.help}')
             return
 
         if args[0] in args[1:]:
@@ -297,15 +332,16 @@ async def random_swap(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx)
         title1, title2 = ctx.swap(user, user2)
         save()
-        await cmd_ctx.send('User {} got "{}". User "{}" got {}.'.format(user.mention, title2, user2.mention, title1))
+        await cmd_ctx.send(f'User {user.mention} got "{title2}". User "{user2.mention}" got {title1}.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{random_swap.help}")
 
 @bot.command()
 async def swap(cmd_ctx, *args):
+    '''!swap @user1 @user2\n[Admin only] Swaps titles between two users'''
     try:
         if len(args) != 2:
-            await cmd_ctx.send('Wrong nunber of arguments. !swap @user1 @user2.')
+            await cmd_ctx.send(f'Wrong nunber of arguments.\n{swap.help}')
             return
 
         if args[0] == args[1]:
@@ -317,15 +353,16 @@ async def swap(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx)
         title1, title2 = ctx.swap(user, user2)
         save()
-        await cmd_ctx.send('User {} got "{}". User "{}" got {}.'.format(user.mention, title2, user2.mention, title1))
+        await cmd_ctx.send(f'User {user.mention} got "{title2}". User "{user2.mention}" got {title1}.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{swap.help}")
 
 @bot.command()
 async def profile(cmd_ctx, *args):
+    '''!profile <@user>\nDisplays user's profile'''
     try:
         if len(args) > 1:
-            await cmd_ctx.send('Wrong nunber of arguments. !profile <@user>')
+            await cmd_ctx.send(f'Wrong nunber of arguments.\n{profile.help}')
             return
 
         user = cmd_ctx.message.author 
@@ -339,7 +376,7 @@ async def profile(cmd_ctx, *args):
         avatar_url = str(user.avatar_url)
 
         ucolor = ctx.get_color(user)
-        border_color = int('0x' + ucolor[1:],16)
+        border_color = int('0x' + ucolor[1:], 16)
         embedVar = Embed(title="", description='', color=border_color)
         embedVar.set_author(name=uname, icon_url=avatar_url)
         embedVar.set_thumbnail(url=avatar_url)
@@ -402,114 +439,168 @@ async def profile(cmd_ctx, *args):
         await cmd_ctx.send(embed=embedVar)
 
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{profile.help}")
 
 @bot.command()
-async def karma(cmd_ctx, *args):
+async def karma(cmd_ctx):
+    '''!karma\nShows karma table'''
     try:
-        if len(args) > 0:
-            await cmd_ctx.send('Wrong nunber of arguments. !karma')
-            return
-
         check_cmd_ctx(cmd_ctx, Privilege.USER)
 
         users = ctx.users.items()
-
         user_karma = []
-
         for user_id, user_info in users:
             karma = ctx.calc_karma(user_id)
             user_karma.append((karma, user_info.name))
-
         user_karma.sort()
 
         max_nickname_length = 0
-        msg = ['```markdown']
-
+        msg = ['```']
         for i,uk in enumerate(user_karma[::-1]):
             max_nickname_length = max(max_nickname_length, len(uk[1]))
 
         max_nickname_length+=2
         for i,uk in enumerate(user_karma[::-1]):
             msg.append(f"{str(i+1)+')':<3} {uk[1]:<{max_nickname_length}}{uk[0]:.1f}")
-
         msg.append('```')
-
         msg = "\n".join(msg)
+
         await cmd_ctx.send(msg)
 
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{karma.help}")
+
+@bot.command()
+async def progress(cmd_ctx, *args):
+    '''!progress <@user> <x/y>\nShows/Updates current progress.'''
+    try:
+        if len(args) > 2:
+            await cmd_ctx.send('Wrong number of arguments. !progress <@user> <x/y>')
+            return
+        
+        user = cmd_ctx.message.author
+        privilate_level = Privilege.USER
+        command_index_offset = 0
+        if len(args) > 1:
+            user = await UserConverter().convert(cmd_ctx, args[0]) 
+            privilate_level = Privilege.ADMIN
+            command_index_offset += 1
+        
+        check_cmd_ctx(cmd_ctx, privilate_level)
+        if len(args) > 0:
+            prog = args[command_index_offset]
+            
+            if re.match(r'^[0-9]+?\/[0-9]+?$', prog) is None and len(prog) > 5:
+                return await cmd_ctx.send(f'Invalid progress "{prog}".')
+            
+            ctx.set_progress(user, prog)
+        
+        all_progress = ctx.get_all_progress()
+
+        msg = ['```']
+        max_length = max([ len(participant) for participant in all_progress.keys()])+2
+        for participant, prog in sorted(all_progress.items()):
+            if prog is None:
+                prog = "None"        
+            msg.append(f'{participant:<{max_length}} {prog}')
+    
+        msg.append('```')
+        msg = '\n'.join(msg)
+
+        await cmd_ctx.send(msg)
+        save() #todo: maybe move it somewhere when it doesn't proc everytime it shows the progress
+    except BotErr as e:
+        await cmd_ctx.send(f"{e}\nUsage:\n{progress.help}")
+
+@bot.command()
+async def prog(cmd_ctx, *args):
+    '''!prog\nShortcut for !progress'''
+    await progress(cmd_ctx, *args)
 
 @bot.command()
 async def rename_title(cmd_ctx, old_title: str, new_title: str):
+    '''!rename_title old_name new_name\nRenames a title'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.rename_title(old_title, new_title)
         save()
-        await cmd_ctx.send('Title {} has been renamed to {}.'.format(old_title, new_title))
+        await cmd_ctx.send(f'Title {old_title} has been renamed to {new_title}.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{rename_title.help}")
 
 @bot.command()
 async def remove_user(cmd_ctx, user: UserConverter):
+    '''!remove_user user\n[Admin only] Removes a specified user'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_user(user)
         save()
-        await cmd_ctx.send('User {} has been removed.'.format(user.mention))
+        await cmd_ctx.send(f'User {user.mention} has been removed.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{remove_user.help}")
 
 @bot.command()
 async def remove_title(cmd_ctx, title: str):
+    '''!remove_titles tilte\n[Admin only] Removes a specified title'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_title(title)
         save()
-        await cmd_ctx.send('Title "{}" has been removed'.format(title))
+        await cmd_ctx.send(f'Title "{title}" has been removed')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{remove_title.help}")
 
 @bot.command()
 async def remove_pool(cmd_ctx, pool: str):
+    '''!remove_pool pool\n[Admin only] Removes a specifed pool'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_pool(pool)
         save()
-        await cmd_ctx.send('Pool "{}" has been removed'.format(pool))
+        await cmd_ctx.send(f'Pool "{pool}" has been removed')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{remove_pool.help}")
+
+@bot.command()
+async def rename_pool(cmd_ctx, pool: str, new_name: str):
+    '''!rename_pool pool new_name\n[Admin only] Rename pool as a new_name'''
+    try:
+        check_cmd_ctx(cmd_ctx)
+        ctx.rename_pool(pool, new_name)
+        save()
+        await cmd_ctx.send(f'Pool "{pool}" has been renamed to "{new_name}"')
+    except BotErr as e:
+        await cmd_ctx.send(f"{e}\nUsage:\n{rename_pool.help}")
 
 @bot.command()
 async def extend_round(cmd_ctx, days: int):
+    '''!extend_round days\n[Admin only] Extends the current round by N days'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.extend_round(timedelta(days=days))
         save()
         rounds = ctx.current().rounds
-        await cmd_ctx.send('Round {} ends at {}.'.format(len(rounds) - 1, rounds[-1].end))
+        await cmd_ctx.send(f'Round {len(rounds) - 1} ends at {rounds[-1].end}.')
     except BotErr as e:
-        await cmd_ctx.send(e)
+        await cmd_ctx.send(f"{e}\nUsage:\n{extend_round.help}")
 
 @bot.command()
-async def create_poll(cmd_ctx, *args):
-    check_cmd_ctx(cmd_ctx)
-    if len(args) > 1:
-        return 
+async def create_poll(cmd_ctx):
+    '''!create_poll\n[Admin only] Creates a poll of all titles to vote for which ones people have seen'''
+    try:
+        check_cmd_ctx(cmd_ctx)
 
-    if len(args) > 0:
-        pool = args[0]
-
-    titles = ctx.get_current_titles()
-
-    for title in titles:
-        msg = await cmd_ctx.send(title)
-        await msg.add_reaction("👀")
-    pass
+        titles = ctx.get_current_titles()
+        for title in titles:
+            msg = await cmd_ctx.send(title)
+            await msg.add_reaction("👀")
+    except BotErr as e:
+        await cmd_ctx.send(f"{e}\nUsage:\n{create_poll.help}")
 
 @bot.command()
 async def export(cmd_ctx, ext: str):
+    '''!export <json/xlsx>\nExports data'''
+
     check_cmd_ctx(cmd_ctx)
     fname = str(uuid.uuid4())
     if ext == 'xlsx':
@@ -519,24 +610,28 @@ async def export(cmd_ctx, ext: str):
         fname += '.json'
         open(fname, 'w').write(ctx.to_json())
     else:
-        return await cmd_ctx.send('Unknown format "{}" (use xlsx or json).'.format(ext))
+        return await cmd_ctx.send(f'Unknown format "{ext}" (use xlsx or json).')
 
     await cmd_ctx.send(file=File(fname))
     os.remove(fname)
 
 @bot.command()
 async def help(cmd_ctx):
-    await cmd_ctx.send('''
-        !start_challenge name
-        !add_pool name
-        !add_user @user
-        !add_title pool @user title_name title_url
-        !start_round days
-        !end_round
-        !rate @user score
-        !reroll @user pool
-        !export
-    ''')
+    '''!help\nPrints this message'''
+
+    embed = Embed(title="Help", description='', color=0x0000000)
+    commands=[]
+    for command in bot.commands:
+        if not command.help:
+            continue
+
+        (name, desc) = command.help.split('\n')
+        commands.append((name, desc))
+        
+    for name, desc in sorted(commands):
+        embed.add_field(name=name, value=desc, inline=False)
+    
+    await cmd_ctx.send(embed=embed)
 
 async def check_deadline():
     await bot.wait_until_ready()
@@ -556,7 +651,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(str(e))
 
-    gsheets_client = pygsheets.authorize('<client_secret.json>')
-    spreadsheet = gsheets_client.open_by_key('<sheets_key>')
+    gsheets_client = pygsheets.authorize('client_secret.json')
+    spreadsheet = gsheets_client.open_by_key(open('sheets_key.txt').read())
     bot.loop.create_task(check_deadline())
     bot.run(open('discord_token.txt').read())

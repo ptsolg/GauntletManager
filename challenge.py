@@ -30,10 +30,10 @@ class TitleInfo:
         return cls(**data)
 
 class RollInfo:
-    def __init__(self, title: str, score=None):
+    def __init__(self, title: str, score=None, progress = None):
         self.title = title
         self.score = score
-
+    
     @classmethod
     def from_json(cls, data):
         return cls(data['title'], data['score'])
@@ -99,34 +99,35 @@ class Pool:
         return cls(data['all_titles'], data['unused_titles'])
 
 class Challenge:
-    def __init__(self, participants, failed_participants, titles, pools, rounds, channel_id):
+    def __init__(self, participants, failed_participants, titles, pools, rounds, channel_id, users_progress):
         self.participants = participants
         self.failed_participants = failed_participants
         self.titles = titles
         self.pools = pools
         self.rounds = rounds
         self.channel_id = channel_id
+        self.users_progress = users_progress
 
     def pool(self, pool):
         if pool not in self.pools:
-            raise BotErr('Cannot find "{}" pool.'.format(pool))
+            raise BotErr(f'Cannot find "{pool}" pool.')
         return self.pools[pool]    
 
     def add_pool(self, name):
         if name in self.pools:
-            raise BotErr('Pool "{}" already exists.'.format(name))
+            raise BotErr(f'Pool "{name}" already exists.')
         self.pools[name] = Pool(all_titles=[], unused_titles=[])
 
     def add_title(self, pool, title_name, title_info):
         if title_name in self.titles:
-            raise BotErr('Title "{}" already exists.'.format(title_name))
+            raise BotErr(f'Title "{title_name}" already exists.')
         self.pool(pool).add(title_name)
         self.pool(pool).sort()
         self.titles[title_name] = title_info
         
     def add_participant(self, user):
         if user.id in self.participants:
-            raise BotErr('User {} is already participating in this challenge.'.format(user.mention))
+            raise BotErr(f'User {user.mention} is already participating in this challenge.')
         self.participants.append(user.id)
 
     def last_round(self):
@@ -145,9 +146,18 @@ class Challenge:
 
     def check_participant(self, participant):
         if participant.id not in self.participants:
-            raise BotErr('User {} is not participating in this challenge.'.format(participant.mention))
+            raise BotErr(f'User {participant.mention} is not participating in this challenge.')
         if participant.id in self.failed_participants:
-            raise BotErr('User {} has failed this challenge.'.format(participant.mention))
+            raise BotErr(f'User {participant.mention} has failed this challenge.')
+
+    def clear_progress(self):
+        self.users_progress = { p: None for p in self.participants }
+
+    def set_progress(self, user, progress):
+        self.users_progress[user] = progress
+
+    def get_progress(self, user):
+        return self.users_progress[user]
 
     @classmethod
     def from_json(cls, data):
@@ -156,7 +166,11 @@ class Challenge:
         titles = dict(map(lambda kv: (kv[0], TitleInfo.from_json(kv[1])), data['titles'].items()))
         pools = dict(map(lambda kv: (kv[0], Pool.from_json(kv[1])), data['pools'].items()))
         rounds = list(map(Round.from_json, data['rounds']))
-        return cls(participants, failed_participants, titles, pools, rounds, int(data['channel_id']))
+        if 'users_progress' in data:
+            users_progress = dict(map(lambda kv: (int(kv[0]), kv[1]), data['users_progress'].items()))
+        else:
+            users_progress = { p: None for p in participants }
+        return cls(participants, failed_participants, titles, pools, rounds, int(data['channel_id']), users_progress)
 
 class Context:
     def __init__(self, users, challenges, current_challenge=None):
@@ -165,7 +179,7 @@ class Context:
         self.current_challenge = current_challenge
 
     def to_json(self):
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=1)
 
     @classmethod
     def from_json(cls, data):
@@ -183,9 +197,9 @@ class Context:
 
     def start_challenge(self, name, channel_id):
         if self.current_challenge is not None:
-            raise BotErr('Finish "{}" challenge first.'.format(self.current_challenge))
+            raise BotErr(f'Finish "{self.current_challenge}" challenge first.')
         if name in self.challenges:
-            raise BotErr('Challenge "{}" already exists.'.format(name))
+            raise BotErr(f'Challenge "{name}" already exists.')
 
         main = Pool(all_titles=[], unused_titles=[])
         self.challenges[name] = Challenge(
@@ -194,7 +208,8 @@ class Context:
             titles={},
             pools={'main': main},
             rounds=[],
-            channel_id=channel_id
+            channel_id=channel_id,
+            users_progress={}
         )
         self.current_challenge = name
 
@@ -214,7 +229,15 @@ class Context:
         challenge = self.current()
         challenge.check_not_started()
         if pool not in challenge.pools:
-            raise BotErr('Pool "{}" does not exist.'.format(pool))
+            raise BotErr(f'Pool "{pool}" does not exist.')
+        del challenge.pools[pool]
+
+    def rename_pool(self, pool, new_name):
+        challenge = self.current()
+        challenge.check_not_started()
+        if pool not in challenge.pools:
+            raise BotErr(f'Pool "{pool}" does not exist.')
+        challenge.pools[new_name] = challenge.pools[pool] 
         del challenge.pools[pool]
 
     def add_user(self, user):
@@ -331,7 +354,6 @@ class Context:
 
         return [(i[0], i[1]) for i in watched.most_common(None) if i[1] == watched.most_common(1)[0][1]]
 
-
     def find_most_showed_users(self, user):
         showed = Counter()
         for challenge in self.challenges.values():
@@ -356,7 +378,7 @@ class Context:
         challenge = self.current()
 
         if title_name not in challenge.titles:
-            raise BotErr('Title "{}" does not exist.'.format(title_name))
+            raise BotErr(f'Title "{title_name}" does not exist.')
 
         del challenge.titles[title_name]
         for (_, pool) in challenge.pools.items():
@@ -367,10 +389,9 @@ class Context:
 
     def rename_title(self, old_title, new_title):
         challenge = self.current()
-        #challenge.check_not_started()
 
         if old_title not in challenge.titles:
-            raise BotErr('Title "{}" does not exist.'.format(old_title))
+            raise BotErr(f'Title "{old_title}" does not exist.')
 
         challenge.titles[new_title] = challenge.titles[old_title]
         del challenge.titles[old_title]
@@ -380,12 +401,36 @@ class Context:
             if old_title in pool.unused_titles:
                 pool.unused_titles[pool.unused_titles.index(old_title)] = new_title
 
+    def clear_progress(self):
+        self.current().clear_progress()
+    
+    def set_progress(self, user, progress):
+        if user.id in self.current().participants:
+            self.current().set_progress(user.id, progress)
+        else:
+            raise BotErr('Invalid User')
+
+    def get_progress(self, user):
+        return self.current().get_progress(user.id)
+    
+    def get_all_progress(self):
+        users_progress = self.current().users_progress
+        rolls = self.current().last_round().rolls
+        ans = {}
+        for participant, progress in users_progress.items():
+            score = rolls[participant].score
+            if score:
+                progress = f'Done: {score}' 
+            ans[self.users[participant].name] = progress
+
+        return ans
+
     def start_round(self, timedelta):
         challenge = self.current()
         main = challenge.pools['main']
 
         if len(challenge.rounds) != 0 and not challenge.rounds[-1].is_finished:
-            raise BotErr('Finish round {} first.'.format(len(challenge.rounds)))
+            raise BotErr(f'Finish round {len(challenge.rounds)} first.')
 
         participants = []
         for p in challenge.participants:
@@ -400,6 +445,10 @@ class Context:
         begin = datetime.now()
         end = begin + timedelta
         challenge.rounds.append(Round(rolls, begin.strftime(Round.TIME_FMT), end.strftime(Round.TIME_FMT), is_finished=False))
+
+        self.clear_progress()
+
+        return dict(zip([ self.users[p].name for p in participants], map(RollInfo, titles)))
 
     def end_round(self):
         challenge = self.current()
@@ -453,7 +502,6 @@ class Context:
                 pool.sort()
                 break
             
-
         return new_title
 
     def set_title(self, user, title):
@@ -475,7 +523,6 @@ class Context:
                 pool.unused_titles.append(old_title)
                 pool.sort()
                 break
-
 
     def swap(self, user1, user2):
         challenge = self.current()

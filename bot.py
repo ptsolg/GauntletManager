@@ -214,9 +214,33 @@ async def set_title(cmd_ctx, *args):
 async def start_round(cmd_ctx, length: int):
     '''!start_round length\n[Admin only] Starts a new round of a specified length'''
     try:
+
+        def gen_roll_info(titles, max_length):
+            msg = ['```']
+            for p,r in sorted(titles.items()):
+                msg.append(f"{p:<{max_length}} {r}")
+            msg.append('```')
+            return '\n'.join(msg)
+        
         check_cmd_ctx(cmd_ctx)
-        ctx.start_round(timedelta(days=length))
+
+        rolls = ctx.start_round(timedelta(days=length))
         save()
+
+        max_length = max([ len(a) for a in rolls.keys() ]) + 2
+        roll_info = { p: '???' for p in rolls.keys() }
+
+        msg = gen_roll_info(roll_info, max_length)
+        sent = await cmd_ctx.send(msg)
+        await asyncio.sleep(2)
+
+        for i in sorted(rolls.keys()):
+            roll_info[i] = rolls[i].title
+            msg = gen_roll_info(roll_info, max_length)
+            await sent.edit(content=msg)
+            
+            await asyncio.sleep(1)
+        
         rounds = ctx.current().rounds
         await cmd_ctx.send('Round {} ({}-{}) starts right now.'.format(len(rounds) - 1, rounds[-1].begin, rounds[-1].end))
     except BotErr as e:

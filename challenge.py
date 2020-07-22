@@ -442,6 +442,8 @@ class Context:
 
         self.clear_progress()
 
+        return dict(zip([ self.users[p].name for p in participants], map(RollInfo, titles)))
+
     def end_round(self):
         challenge = self.current()
         rnd = challenge.last_round()

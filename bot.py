@@ -216,7 +216,7 @@ async def start_round(cmd_ctx, length: int):
     try:
 
         def gen_roll_info(titles, max_length):
-            msg = ['```']
+            msg = ['```fix']
             for p,r in sorted(titles.items()):
                 msg.append(f"{p:<{max_length}} {r}")
             msg.append('```')
@@ -238,7 +238,6 @@ async def start_round(cmd_ctx, length: int):
             roll_info[i] = rolls[i].title
             msg = gen_roll_info(roll_info, max_length)
             await sent.edit(content=msg)
-            
             await asyncio.sleep(1)
         
         rounds = ctx.current().rounds
@@ -378,7 +377,7 @@ async def profile(cmd_ctx, *args):
         avatar_url = str(user.avatar_url)
 
         ucolor = ctx.get_color(user)
-        border_color = int('0x' + ucolor[1:],16)
+        border_color = int('0x' + ucolor[1:], 16)
         embedVar = Embed(title="", description='', color=border_color)
         embedVar.set_author(name=uname, icon_url=avatar_url)
         embedVar.set_thumbnail(url=avatar_url)

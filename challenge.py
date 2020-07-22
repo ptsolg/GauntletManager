@@ -346,7 +346,6 @@ class Context:
 
         return [(i[0], i[1]) for i in watched.most_common(None) if i[1] == watched.most_common(1)[0][1]]
 
-
     def find_most_showed_users(self, user):
         showed = Counter()
         for challenge in self.challenges.values():
@@ -382,7 +381,6 @@ class Context:
 
     def rename_title(self, old_title, new_title):
         challenge = self.current()
-        #challenge.check_not_started()
 
         if old_title not in challenge.titles:
             raise BotErr('Title "{}" does not exist.'.format(old_title))
@@ -517,7 +515,6 @@ class Context:
                 pool.unused_titles.append(old_title)
                 pool.sort()
                 break
-
 
     def swap(self, user1, user2):
         challenge = self.current()

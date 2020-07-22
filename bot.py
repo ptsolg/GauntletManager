@@ -337,7 +337,7 @@ async def swap(cmd_ctx, *args):
 
 @bot.command()
 async def profile(cmd_ctx, *args):
-    '''!profile <@user>\nDisplays profile of a user'''
+    '''!profile <@user>\nDisplays user's profile'''
     try:
         if len(args) > 1:
             await cmd_ctx.send('Wrong nunber of arguments. !profile <@user>')
@@ -508,7 +508,7 @@ async def rename_title(cmd_ctx, old_title: str, new_title: str):
 
 @bot.command()
 async def remove_user(cmd_ctx, user: UserConverter):
-    '''!remove_user user\nRemoves a specified user'''
+    '''!remove_user user\n[Admin only] Removes a specified user'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_user(user)
@@ -519,7 +519,7 @@ async def remove_user(cmd_ctx, user: UserConverter):
 
 @bot.command()
 async def remove_title(cmd_ctx, title: str):
-    '''!remove_titles tilte\nRemoves a specified title'''
+    '''!remove_titles tilte\n[Admin only] Removes a specified title'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_title(title)
@@ -530,7 +530,7 @@ async def remove_title(cmd_ctx, title: str):
 
 @bot.command()
 async def remove_pool(cmd_ctx, pool: str):
-    '''!remove_pool pool\nRemoves a specifed pool'''
+    '''!remove_pool pool\n[Admin only] Removes a specifed pool'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.remove_pool(pool)
@@ -541,7 +541,7 @@ async def remove_pool(cmd_ctx, pool: str):
 
 @bot.command()
 async def extend_round(cmd_ctx, days: int):
-    '''!extend_round days\nExtends the current round by N days'''
+    '''!extend_round days\n[Admin only] Extends the current round by N days'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.extend_round(timedelta(days=days))

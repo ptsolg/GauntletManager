@@ -110,24 +110,24 @@ class Challenge:
 
     def pool(self, pool):
         if pool not in self.pools:
-            raise BotErr('Cannot find "{}" pool.'.format(pool))
+            raise BotErr(f'Cannot find "{pool}" pool.')
         return self.pools[pool]    
 
     def add_pool(self, name):
         if name in self.pools:
-            raise BotErr('Pool "{}" already exists.'.format(name))
+            raise BotErr(f'Pool "{name}" already exists.')
         self.pools[name] = Pool(all_titles=[], unused_titles=[])
 
     def add_title(self, pool, title_name, title_info):
         if title_name in self.titles:
-            raise BotErr('Title "{}" already exists.'.format(title_name))
+            raise BotErr(f'Title "{title_name}" already exists.')
         self.pool(pool).add(title_name)
         self.pool(pool).sort()
         self.titles[title_name] = title_info
         
     def add_participant(self, user):
         if user.id in self.participants:
-            raise BotErr('User {} is already participating in this challenge.'.format(user.mention))
+            raise BotErr(f'User {user.mention} is already participating in this challenge.')
         self.participants.append(user.id)
 
     def last_round(self):
@@ -146,9 +146,9 @@ class Challenge:
 
     def check_participant(self, participant):
         if participant.id not in self.participants:
-            raise BotErr('User {} is not participating in this challenge.'.format(participant.mention))
+            raise BotErr(f'User {participant.mention} is not participating in this challenge.')
         if participant.id in self.failed_participants:
-            raise BotErr('User {} has failed this challenge.'.format(participant.mention))
+            raise BotErr(f'User {participant.mention} has failed this challenge.')
 
     def clear_progress(self):
         self.users_progress = { p: None for p in self.participants }
@@ -197,9 +197,9 @@ class Context:
 
     def start_challenge(self, name, channel_id):
         if self.current_challenge is not None:
-            raise BotErr('Finish "{}" challenge first.'.format(self.current_challenge))
+            raise BotErr(f'Finish "{self.current_challenge}" challenge first.')
         if name in self.challenges:
-            raise BotErr('Challenge "{}" already exists.'.format(name))
+            raise BotErr(f'Challenge "{name}" already exists.')
 
         main = Pool(all_titles=[], unused_titles=[])
         self.challenges[name] = Challenge(
@@ -229,14 +229,14 @@ class Context:
         challenge = self.current()
         challenge.check_not_started()
         if pool not in challenge.pools:
-            raise BotErr('Pool "{}" does not exist.'.format(pool))
+            raise BotErr(f'Pool "{pool}" does not exist.')
         del challenge.pools[pool]
 
     def rename_pool(self, pool, new_name):
         challenge = self.current()
         challenge.check_not_started()
         if pool not in challenge.pools:
-            raise BotErr('Pool "{}" does not exist.'.format(pool))
+            raise BotErr(f'Pool "{pool}" does not exist.')
         challenge.pools[new_name] = challenge.pools[pool] 
         del challenge.pools[pool]
 
@@ -378,7 +378,7 @@ class Context:
         challenge = self.current()
 
         if title_name not in challenge.titles:
-            raise BotErr('Title "{}" does not exist.'.format(title_name))
+            raise BotErr(f'Title "{title_name}" does not exist.')
 
         del challenge.titles[title_name]
         for (_, pool) in challenge.pools.items():
@@ -391,7 +391,7 @@ class Context:
         challenge = self.current()
 
         if old_title not in challenge.titles:
-            raise BotErr('Title "{}" does not exist.'.format(old_title))
+            raise BotErr(f'Title "{old_title}" does not exist.')
 
         challenge.titles[new_title] = challenge.titles[old_title]
         del challenge.titles[old_title]
@@ -408,7 +408,7 @@ class Context:
         if user.id in self.current().participants:
             self.current().set_progress(user.id, progress)
         else:
-            raise BotErr('Bad user')
+            raise BotErr('Invalid User')
 
     def get_progress(self, user):
         return self.current().get_progress(user.id)
@@ -430,7 +430,7 @@ class Context:
         main = challenge.pools['main']
 
         if len(challenge.rounds) != 0 and not challenge.rounds[-1].is_finished:
-            raise BotErr('Finish round {} first.'.format(len(challenge.rounds)))
+            raise BotErr(f'Finish round {len(challenge.rounds)} first.')
 
         participants = []
         for p in challenge.participants:

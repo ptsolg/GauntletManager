@@ -588,12 +588,15 @@ async def extend_round(cmd_ctx, days: int):
 @bot.command()
 async def create_poll(cmd_ctx):
     '''!create_poll\n[Admin only] Creates a poll of all titles to vote for which ones people have seen'''
-    check_cmd_ctx(cmd_ctx)
+    try:
+        check_cmd_ctx(cmd_ctx)
 
-    titles = ctx.get_current_titles()
-    for title in titles:
-        msg = await cmd_ctx.send(title)
-        await msg.add_reaction("👀")
+        titles = ctx.get_current_titles()
+        for title in titles:
+            msg = await cmd_ctx.send(title)
+            await msg.add_reaction("👀")
+    except BotErr as e:
+        await cmd_ctx.send(e)
 
 @bot.command()
 async def export(cmd_ctx, ext: str):

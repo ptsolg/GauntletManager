@@ -46,7 +46,7 @@ def load():
 
 @bot.command()
 async def start_challenge(cmd_ctx, name: str):
-    '''!start_challenge name\nStarts a new challenge with a given name'''
+    '''!start_challenge name\n[Admin only] Starts a new challenge with a given name'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.start_challenge(name, cmd_ctx.message.channel.id)
@@ -174,7 +174,7 @@ async def _add_title(cmd_ctx, pool: str, proposer: User, title_name: str, title_
 
 @bot.command()
 async def add_title(cmd_ctx, *args):
-    '''!add_title <@user> title_name\nAdds a title for specified user.'''
+    '''!add_title <@user> title_name\n[Admin only] Adds a title for specified user.'''
     if len(args) < 2 or len(args) > 4:
         return
 
@@ -198,7 +198,7 @@ async def add_title(cmd_ctx, *args):
 
 @bot.command()
 async def set_title(cmd_ctx, *args):
-    '''!set_title <@user> <title_name>\nSets a new title for a specified user'''
+    '''!set_title <@user> <title_name>\n[Admin only] Sets a new title for a specified user'''
     if len(args) != 2:
         await cmd_ctx.send('Invalid number of arguments. Usage: !set_title <@user> <"title_name">')
         return
@@ -210,10 +210,9 @@ async def set_title(cmd_ctx, *args):
     ctx.set_title(user, title_name)
     await cmd_ctx.send('Title "{}" has been assigned to {}'.format(title_name, user.mention))
 
-
 @bot.command()
 async def start_round(cmd_ctx, length: int):
-    '''!start_round length\nStarts a new round of a specified length'''
+    '''!start_round length\n[Admin only] Starts a new round of a specified length'''
     try:
         check_cmd_ctx(cmd_ctx)
         ctx.start_round(timedelta(days=length))
@@ -275,7 +274,7 @@ async def rate(cmd_ctx, *args):
 
 @bot.command()
 async def reroll(cmd_ctx, *args):
-    '''!reroll @user <pool=main>\nReroll titles for a user from a specified pool'''
+    '''!reroll @user <pool=main>\n[Admin only] Reroll titles for a user from a specified pool'''
     try:
         user = cmd_ctx.message.author
         pool = 'main'
@@ -295,7 +294,7 @@ async def reroll(cmd_ctx, *args):
 
 @bot.command()
 async def random_swap(cmd_ctx, *args):
-    '''!random_swap @user @candidate1 <@candidate2...>\nSwaps user's title with random candidate's title'''
+    '''!random_swap @user @candidate1 <@candidate2...>\n[Admin only] Swaps user's title with random candidate's title'''
     try:
         if len(args) < 2:
             await cmd_ctx.send('Wrong nunber of arguments. !random_swap @user @candidate1 <@candidate2...>')
@@ -317,7 +316,7 @@ async def random_swap(cmd_ctx, *args):
 
 @bot.command()
 async def swap(cmd_ctx, *args):
-    '''!swap @user1 @user2\nSwaps titles between two users'''
+    '''!swap @user1 @user2\n[Admin only] Swaps titles between two users'''
     try:
         if len(args) != 2:
             await cmd_ctx.send('Wrong nunber of arguments. !swap @user1 @user2.')
@@ -561,7 +560,6 @@ async def create_poll(cmd_ctx):
     for title in titles:
         msg = await cmd_ctx.send(title)
         await msg.add_reaction("👀")
-    pass
 
 @bot.command()
 async def export(cmd_ctx, ext: str):

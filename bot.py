@@ -495,19 +495,19 @@ async def progress(cmd_ctx, *args):
 
             if re.match(r'^[0-9]+?\/[0-9]+?$', prog):
                 ctx.set_progress(user, prog)
-            elif re.match(r'^[0-9]+?$', prog):
-                _, total = ctx.get_progress(user)
-                ctx.set_progress(user, '\\'.join(prog, total))
-            elif prog == '+':
-                current, total = ctx.get_progress(user)
-                try:
-                    new_prog = int(current) + 1
-                    ctx.set_progress(user, '\\'.join(str(new_prog), total))
-                except:
-                    return await cmd_ctx.send(f'Invalid progress "{prog}".')
             else:
-                return await cmd_ctx.send(f'Invalid progress "{prog}".')               
-    
+                p = ctx.get_progress(user)
+                if p and p.find('\\'):
+                    current, total = p.split("\\")
+                else:
+                    return await cmd_ctx.send(f'Bad current progress "{p}".')
+                
+                if re.match(r'^[0-9]+?$', prog):
+                    ctx.set_progress(user, '\\'.join([prog, total]))
+                elif prog == '+':
+                    ctx.set_progress(user, '\\'.join([str(int(current) + 1), total]))
+                else:
+                    return await cmd_ctx.send(f'Invalid progress "{prog}".')
         all_progress = ctx.get_all_progress()
 
         msg = ['```']

@@ -254,7 +254,7 @@ async def end_round(cmd_ctx):
         ctx.end_round()
         save()
         rounds = ctx.current().rounds
-        await channel.send(f'Round {len(rounds) - 1} has been ended.')
+        await cmd_ctx.send(f'Round {len(rounds) - 1} has been ended.')
     except BotErr as e:
         await cmd_ctx.send(f"{e}\nUsage:\n{end_round.help}")
 
@@ -408,7 +408,7 @@ async def profile(cmd_ctx, *args):
         else:
             embedVar.add_field(name="No Challenges", value='Empty', inline=True)
 
-        karma = ctx.calc_karma(user.id)
+        karma,diff = ctx.calc_karma(user.id)
         embedVar.add_field(name="Karma", value=str(round(karma,2)), inline=False)
 
         karma_logo_url = 'https://i.imgur.com/wscUx1m.png'
@@ -450,18 +450,19 @@ async def karma(cmd_ctx):
         users = ctx.users.items()
         user_karma = []
         for user_id, user_info in users:
-            karma = ctx.calc_karma(user_id)
-            user_karma.append((karma, user_info.name))
+            karma,diff = ctx.calc_karma(user_id)
+            user_karma.append((karma, diff, user_info.name))
         user_karma.sort()
 
         max_nickname_length = 0
         msg = ['```']
         for i,uk in enumerate(user_karma[::-1]):
-            max_nickname_length = max(max_nickname_length, len(uk[1]))
+            max_nickname_length = max(max_nickname_length, len(uk[2]))
 
         max_nickname_length+=2
         for i,uk in enumerate(user_karma[::-1]):
-            msg.append(f"{str(i+1)+')':<3} {uk[1]:<{max_nickname_length}}{uk[0]:.1f}")
+            diff = f"({'+'if uk[1]>0 else ''}{round(uk[1],2)})" if uk[1] else ""
+            msg.append(f"{str(i+1)+')':<3} {uk[2]:<{max_nickname_length}}{uk[0]:.1f} {diff}")
         msg.append('```')
         msg = "\n".join(msg)
 
@@ -475,7 +476,7 @@ async def progress(cmd_ctx, *args):
     '''!progress <@user> <x/y>\nShows/Updates current progress.'''
     try:
         if len(args) > 2:
-            await cmd_ctx.send('Wrong number of arguments. !progress <@user> <x/y>')
+            await cmd_ctx.send('Wrong number of arguments. !progress <@user> [<x/y> or <x> or +]')
             return
         
         user = cmd_ctx.message.author
@@ -489,12 +490,24 @@ async def progress(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx, privilate_level)
         if len(args) > 0:
             prog = args[command_index_offset]
-            
-            if re.match(r'^[0-9]+?\/[0-9]+?$', prog) is None and len(prog) > 5:
+            if len(prog) > 5:
                 return await cmd_ctx.send(f'Invalid progress "{prog}".')
-            
-            ctx.set_progress(user, prog)
-        
+
+            if re.match(r'^[0-9]+?\/[0-9]+?$', prog):
+                ctx.set_progress(user, prog)
+            elif re.match(r'^[0-9]+?$', prog):
+                _, total = ctx.get_progress(user)
+                ctx.set_progress(user, '\\'.join(prog, total))
+            elif prog == '+':
+                current, total = ctx.get_progress(user)
+                try:
+                    new_prog = int(current) + 1
+                    ctx.set_progress(user, '\\'.join(str(new_prog), total))
+                except:
+                    return await cmd_ctx.send(f'Invalid progress "{prog}".')
+            else:
+                return await cmd_ctx.send(f'Invalid progress "{prog}".')               
+    
         all_progress = ctx.get_all_progress()
 
         msg = ['```']

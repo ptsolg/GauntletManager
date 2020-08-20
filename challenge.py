@@ -1,6 +1,7 @@
 import json
 import random
 import xlsxwriter
+import numpy as np
 from datetime import datetime
 from collections import Counter
 
@@ -99,7 +100,7 @@ class Pool:
         return cls(data['all_titles'], data['unused_titles'])
 
 class Challenge:
-    def __init__(self, participants, failed_participants, titles, pools, rounds, channel_id, users_progress):
+    def __init__(self, participants, failed_participants, titles, pools, rounds, channel_id, users_progress, idx):
         self.participants = participants
         self.failed_participants = failed_participants
         self.titles = titles
@@ -107,6 +108,7 @@ class Challenge:
         self.rounds = rounds
         self.channel_id = channel_id
         self.users_progress = users_progress
+        self.idx = idx
 
     def pool(self, pool):
         if pool not in self.pools:
@@ -154,10 +156,16 @@ class Challenge:
         self.users_progress = { p: None for p in self.participants }
 
     def set_progress(self, user, progress):
-        self.users_progress[user] = progress
+        if user in self.users_progress:
+            self.users_progress[user] = progress
+        else:
+            raise BotErr("Invalid User")
 
     def get_progress(self, user):
-        return self.users_progress[user]
+        if user in self.users_progress:
+            return self.users_progress[user]
+        else:
+            raise BotErr("Invalid User")
 
     @classmethod
     def from_json(cls, data):
@@ -170,7 +178,9 @@ class Challenge:
             users_progress = dict(map(lambda kv: (int(kv[0]), kv[1]), data['users_progress'].items()))
         else:
             users_progress = { p: None for p in participants }
-        return cls(participants, failed_participants, titles, pools, rounds, int(data['channel_id']), users_progress)
+        idx = data['idx']
+
+        return cls(participants, failed_participants, titles, pools, rounds, int(data['channel_id']), users_progress, idx)
 
 class Context:
     def __init__(self, users, challenges, current_challenge=None):
@@ -209,7 +219,8 @@ class Context:
             pools={'main': main},
             rounds=[],
             channel_id=channel_id,
-            users_progress={}
+            users_progress={},
+            idx=max([ i.idx for i in self.challenges.values() ]) + 1
         )
         self.current_challenge = name
 
@@ -287,28 +298,58 @@ class Context:
 
     def calc_karma(self, user_id):
 
-        def calc_karma_diff(score):
-            karma_step = 5
-            return (score-5)*karma_step
+        def calc_karma_diff_for_user(score):
+            # scr = (score-5.0)
+            # return ((-1 if scr < 0 else 0.5) * (scr)**2)/3
+            return 5 + (score - 5 if score - 5 < 0 else (score - 5) * 0.25)
+
+        def calc_karma_diff_for_titles(score):           
+            # coef = 4.47213
+            # return coef * (-1 if score-5 < 0 else 1)*(abs(score-5))**(0.5)
+            return score
+
+        def calc_avg_name(name):
+            return sum([ord(x) for x in name])/len(name)
 
         max_karma = 1000
-        
-        current_karma = max_karma//2
+        current_karma = 0
+        diff = 0
 
-        for challenge in self.challenges.values():
+        for challenge in sorted(self.challenges.values(), key=lambda x: x.idx):
+            diff = 0
             for r in challenge.rounds:
                 if not r.is_finished:
                     continue
-
-                for entry in r.rolls.values():
+                
+                new_karma = current_karma
+                for participant, entry in r.rolls.items():
                     title = entry.title
                     score = entry.score
-                    if score and challenge.titles[title].proposer == user_id:
-                        current_karma += calc_karma_diff(score)
-                        current_karma = min(current_karma, max_karma)
-                        current_karma = max(current_karma, 0)        
+                    karma_step = 2
+                    karma_weights = [0.5, 0.50]
+                    karma_diffs = []
 
-        return current_karma
+                    if score and challenge.titles[title].proposer == user_id and participant != user_id:
+                        karma_diffs.append(calc_karma_diff_for_titles(score))
+
+                    if score and participant == user_id and challenge.titles[title].proposer != user_id:
+                        karma_diffs.append(calc_karma_diff_for_user(score))
+
+                    for i in range(len(karma_diffs)):
+                        # if calc_avg_name(self.users[participant].name) < calc_avg_name(title):
+                        #     karma_diffs[i] *= 0.971 
+                        # else:
+                        #     karma_diffs[i] *= 1.029
+                        new_karma += karma_weights[i] * karma_diffs[i] * karma_step
+                    if type(new_karma) == complex:
+                        new_karma = new_karma.real
+                    new_karma = min(new_karma, max_karma)
+                    new_karma = max(new_karma, 0)        
+
+                diff = new_karma - current_karma
+                current_karma = new_karma
+
+        return current_karma, diff
 
     def calc_avg_user_title_score(self, user):
         scores=[]
@@ -411,7 +452,10 @@ class Context:
             raise BotErr('Invalid User')
 
     def get_progress(self, user):
-        return self.current().get_progress(user.id)
+        if user.id in self.current().participants:
+            return self.current().get_progress(user.id)
+        else:
+            raise BotErr('Invalid User')
     
     def get_all_progress(self):
         users_progress = self.current().users_progress
@@ -425,9 +469,9 @@ class Context:
 
         return ans
 
-    def start_round(self, timedelta):
+    def start_round(self, timedelta, pool_name):
         challenge = self.current()
-        main = challenge.pools['main']
+        pool = challenge.pools[pool_name]
 
         if len(challenge.rounds) != 0 and not challenge.rounds[-1].is_finished:
             raise BotErr(f'Finish round {len(challenge.rounds)} first.')
@@ -439,8 +483,8 @@ class Context:
         if len(participants) == 0:
             raise BotErr('Not enough participants to start a round.')
 
-        random.shuffle(participants)
-        titles = main.pop_n(len(participants))
+        #random.shuffle(participants)
+        titles = pool.pop_n(len(participants))
         rolls = dict(zip(participants, map(RollInfo, titles)))
         begin = datetime.now()
         end = begin + timedelta
@@ -541,5 +585,8 @@ class Context:
     def is_in_challenge(self, user):
         return user.id in self.current().participants
 
-    def get_end_round_time(self):
-        return self.current().last_round().parse_end()
+    def get_end_round_time(self): 
+        try:
+            return self.current().last_round().parse_end()
+        except BotErr as e:
+            return None

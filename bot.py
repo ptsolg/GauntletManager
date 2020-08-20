@@ -184,6 +184,7 @@ async def add_title(cmd_ctx, *args):
             title_name = args[2]
             user = await UserConverter().convert(cmd_ctx, args[1])
         elif len(args) == 3:
+            pool = args[0]
             title_url = args[-1]
 
         check_cmd_ctx(cmd_ctx)
@@ -212,7 +213,7 @@ async def set_title(cmd_ctx, *args):
         await cmd_ctx.send(f"{e}\nUsage:\n{set_title.help}")
 
 @bot.command()
-async def start_round(cmd_ctx, length: int):
+async def start_round(cmd_ctx, *args):
     '''!start_round length\n[Admin only] Starts a new round of a specified length'''
     try:
 
@@ -222,10 +223,18 @@ async def start_round(cmd_ctx, length: int):
                 msg.append(f"{p:<{max_length}} {r}")
             msg.append('```')
             return '\n'.join(msg)
+
+        if len(args) < 1:
+            cmd_ctx.send(f"Bad arguments.\nUsage:{start_round.help}")
+            return
+        length = int(args[0])
         
         check_cmd_ctx(cmd_ctx)
+        pool = 'main'
+        if len(args) == 2:
+            pool = args[1]
 
-        rolls = ctx.start_round(timedelta(days=length))
+        rolls = ctx.start_round(timedelta(days=length), pool)
         save()
 
         max_length = max([ len(a) for a in rolls.keys() ]) + 2
@@ -254,7 +263,7 @@ async def end_round(cmd_ctx):
         ctx.end_round()
         save()
         rounds = ctx.current().rounds
-        await channel.send(f'Round {len(rounds) - 1} has been ended.')
+        await cmd_ctx.send(f'Round {len(rounds) - 1} has been ended.')
     except BotErr as e:
         await cmd_ctx.send(f"{e}\nUsage:\n{end_round.help}")
 
@@ -408,7 +417,7 @@ async def profile(cmd_ctx, *args):
         else:
             embedVar.add_field(name="No Challenges", value='Empty', inline=True)
 
-        karma = ctx.calc_karma(user.id)
+        karma, _ = ctx.calc_karma(user.id)
         embedVar.add_field(name="Karma", value=str(round(karma,2)), inline=False)
 
         karma_logo_url = 'https://i.imgur.com/wscUx1m.png'
@@ -434,10 +443,10 @@ async def profile(cmd_ctx, *args):
 
         if ctx.is_in_challenge(user):
             time = ctx.get_end_round_time()
-            embedVar.set_footer(text=f'Round ends on: {time}')
+            if time:
+                embedVar.set_footer(text=f'Round ends on: {time}')
 
         await cmd_ctx.send(embed=embedVar)
-
     except BotErr as e:
         await cmd_ctx.send(f"{e}\nUsage:\n{profile.help}")
 
@@ -450,18 +459,19 @@ async def karma(cmd_ctx):
         users = ctx.users.items()
         user_karma = []
         for user_id, user_info in users:
-            karma = ctx.calc_karma(user_id)
-            user_karma.append((karma, user_info.name))
+            karma,diff = ctx.calc_karma(user_id)
+            user_karma.append((karma, diff, user_info.name))
         user_karma.sort()
 
         max_nickname_length = 0
         msg = ['```']
         for i,uk in enumerate(user_karma[::-1]):
-            max_nickname_length = max(max_nickname_length, len(uk[1]))
+            max_nickname_length = max(max_nickname_length, len(uk[2]))
 
         max_nickname_length+=2
         for i,uk in enumerate(user_karma[::-1]):
-            msg.append(f"{str(i+1)+')':<3} {uk[1]:<{max_nickname_length}}{uk[0]:.1f}")
+            diff = f"({'+'if uk[1]>0 else ''}{round(uk[1],2)})" if uk[1] else ""
+            msg.append(f"{str(i+1)+')':<3} {uk[2]:<{max_nickname_length}}{uk[0]:.1f} {diff}")
         msg.append('```')
         msg = "\n".join(msg)
 
@@ -472,10 +482,10 @@ async def karma(cmd_ctx):
 
 @bot.command()
 async def progress(cmd_ctx, *args):
-    '''!progress <@user> <x/y>\nShows/Updates current progress.'''
+    '''!progress <@user> [<x/y> or <x> or +<x>]\nShows/Updates current progress.'''
     try:
         if len(args) > 2:
-            await cmd_ctx.send('Wrong number of arguments. !progress <@user> <x/y>')
+            await cmd_ctx.send(f'Wrong number of arguments. {progress.help}')
             return
         
         user = cmd_ctx.message.author
@@ -489,12 +499,29 @@ async def progress(cmd_ctx, *args):
         check_cmd_ctx(cmd_ctx, privilate_level)
         if len(args) > 0:
             prog = args[command_index_offset]
-            
-            if re.match(r'^[0-9]+?\/[0-9]+?$', prog) is None and len(prog) > 5:
+            if len(prog) > 5:
                 return await cmd_ctx.send(f'Invalid progress "{prog}".')
-            
-            ctx.set_progress(user, prog)
-        
+
+            if re.match(r'^[0-9]+?\/[0-9]+?$', prog):
+                ctx.set_progress(user, prog)
+            else:
+                p = ctx.get_progress(user)
+                if p and p.find('/') >= 0:
+                    current, total = p.split("/")
+                else:
+                    return await cmd_ctx.send(f'Bad current progress "{p}".')
+                
+                if re.match(r'^[0-9]+?$', prog):
+                    ctx.set_progress(user, '/'.join([prog, total]))
+                elif re.match(r'^\+([0-9]*?)$', prog):
+                    offset = re.match(r'^\+([0-9]*?)$', prog).group(1)
+                    if not offset:
+                        offset = 1
+                    else:
+                        offset = int(offset)
+                    ctx.set_progress(user, '/'.join([str(int(current) + offset), total]))
+                else:
+                    return await cmd_ctx.send(f'Invalid progress "{prog}".')
         all_progress = ctx.get_all_progress()
 
         msg = ['```']

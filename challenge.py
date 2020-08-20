@@ -156,10 +156,16 @@ class Challenge:
         self.users_progress = { p: None for p in self.participants }
 
     def set_progress(self, user, progress):
-        self.users_progress[user] = progress
+        if user in self.users_progress:
+            self.users_progress[user] = progress
+        else:
+            raise BotErr("Invalid User")
 
     def get_progress(self, user):
-        return self.users_progress[user]
+        if user in self.users_progress:
+            return self.users_progress[user]
+        else:
+            raise BotErr("Invalid User")
 
     @classmethod
     def from_json(cls, data):
@@ -446,7 +452,10 @@ class Context:
             raise BotErr('Invalid User')
 
     def get_progress(self, user):
-        return self.current().get_progress(user.id)
+        if user.id in self.current().participants:
+            return self.current().get_progress(user.id)
+        else:
+            raise BotErr('Invalid User')
     
     def get_all_progress(self):
         users_progress = self.current().users_progress
@@ -460,9 +469,9 @@ class Context:
 
         return ans
 
-    def start_round(self, timedelta):
+    def start_round(self, timedelta, pool_name):
         challenge = self.current()
-        main = challenge.pools['main']
+        pool = challenge.pools[pool_name]
 
         if len(challenge.rounds) != 0 and not challenge.rounds[-1].is_finished:
             raise BotErr(f'Finish round {len(challenge.rounds)} first.')
@@ -475,7 +484,7 @@ class Context:
             raise BotErr('Not enough participants to start a round.')
 
         #random.shuffle(participants)
-        titles = main.pop_n(len(participants))
+        titles = pool.pop_n(len(participants))
         rolls = dict(zip(participants, map(RollInfo, titles)))
         begin = datetime.now()
         end = begin + timedelta
@@ -576,5 +585,8 @@ class Context:
     def is_in_challenge(self, user):
         return user.id in self.current().participants
 
-    def get_end_round_time(self):
-        return self.current().last_round().parse_end()
+    def get_end_round_time(self): 
+        try:
+            return self.current().last_round().parse_end()
+        except BotErr as e:
+            return None

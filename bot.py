@@ -660,18 +660,6 @@ async def help(cmd_ctx):
     
     await cmd_ctx.send(embed=embed)
 
-async def check_deadline():
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        try:
-            challenge = ctx.current()
-            rnd = challenge.last_round()
-            if datetime.now() >= rnd.parse_end():
-                await _end_round(bot.get_channel(challenge.channel_id))
-        except:
-            pass
-        await asyncio.sleep(10)
-
 if __name__ == '__main__':
     try:
         load()
@@ -680,5 +668,4 @@ if __name__ == '__main__':
 
     gsheets_client = pygsheets.authorize('client_secret.json')
     spreadsheet = gsheets_client.open_by_key(open('sheets_key.txt').read())
-    bot.loop.create_task(check_deadline())
     bot.run(open('discord_token.txt').read())

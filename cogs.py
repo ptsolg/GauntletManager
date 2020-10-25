@@ -6,10 +6,10 @@ import random
 
 from discord import File, Embed
 from discord.ext import commands
-from discord.ext.commands import UserConverter
+from discord.ext.commands import UserConverter, CommandError
 from datetime import timedelta
 
-class BotErr(Exception):
+class BotErr(CommandError):
     def __init__(self, text):
         self.text = text
 
@@ -279,18 +279,18 @@ class Admin(commands.Cog):
         title1, title2 = await self.bot.swap(ctx, user1, user2)
         await ctx.send(f'User {user1.mention} got "{title2.name}". User "{user2.mention}" got "{title1.name}".')
 
+    @commands.command()
+    async def set_spreadsheet_key(self, ctx, key: str):
+        '''
+        !set_spreadsheet_key key
+        Sets google sheets key
+        '''
+        await self.bot.set_spreadsheet_key(ctx, key)
+        await ctx.send('Done.')
+
 class User(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    @commands.command()
-    async def export(self, ctx, ext: str):
-        '''
-        !export json|xlsx
-        Exports data
-        '''
-        # todo
-        pass
 
     @commands.command()
     async def help(self, ctx):
@@ -496,15 +496,6 @@ class User(commands.Cog):
 
         await self.bot.set_name(user, name)
         await ctx.send(f'{user.mention} got "{name}" as a new name.')
-
-    @commands.command()
-    async def set_spreadsheet_key(self, ctx, key: str):
-        '''
-        !set_spreadsheet_key key
-        Sets google sheets key
-        '''
-        await self.bot.set_spreadsheet_key(ctx, key)
-        await ctx.send('Done.')
 
     @commands.command()
     async def sync(self, ctx):

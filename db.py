@@ -105,7 +105,7 @@ class Guild(Relation):
     async def add_challenge(self, name, start_time):
         id = (await self.db.execute('INSERT INTO challenge (guild_id, name, start_time) VALUES (?, ?, ?)',
             [self.id, name, start_time])).lastrowid
-        return Challenge(self.db, [id, self.id, name, start_time, None])
+        return Challenge(self.db, [id, self.id, name, start_time, None, None])
 
     async def fetch_users(self):
         rows = await self.db.fetchall(f'''
@@ -132,7 +132,7 @@ class User(Relation):
         super().__init__(db, 'user', User.COLS, Cols('id'), row)
 
 class Challenge(Relation):
-    COLS = Cols('id', 'guild_id', 'name', 'start_time', 'finish_time')
+    COLS = Cols('id', 'guild_id', 'name', 'start_time', 'finish_time', 'award_url')
 
     @staticmethod
     async def fetch_current_challenge(db, guild_id):
@@ -353,6 +353,14 @@ class UserStats:
             GROUP BY U.id
             ORDER BY count DESC LIMIT 6''', [user_id])
 
+        awards = await db.fetchall('''
+            SELECT C.award_url FROM challenge C
+            JOIN participant P ON P.challenge_id = C.id
+            WHERE P.user_id = ? AND C.guild_id = ?
+                AND P.failed_round_id IS NULL AND C.award_url IS NOT NULL
+            ORDER BY C.start_time''', [user_id, guild_id])
+        awards = [x[0] for x in awards]
+
         finish_time = None
         challenge = await Challenge.fetch_current_challenge(db, guild_id)
         if challenge is not None:
@@ -361,13 +369,6 @@ class UserStats:
             if last_round is not None and participant is not None and not participant.has_failed and not last_round.is_finished:
                 finish_time = last_round.finish_time
 
-        awards = [
-            'https://i.imgur.com/9YCUCw2.png',
-            'https://i.imgur.com/3jRu8pl.png',
-            'https://i.imgur.com/zMoQDBO.png',
-            'https://i.imgur.com/cA7yK3V.png',
-            'https://i.imgur.com/RiH7mZA.png',
-        ]
         return UserStats(num_challenges,
                          num_completed,
                          avg_rate,

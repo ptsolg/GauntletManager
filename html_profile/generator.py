@@ -6,6 +6,9 @@ def gen_award_div(awards):
 def gen_sniped_most_html_string(sniped):
     return "\n".join([ f'<div class="sniped-wrapper"><div class="sniped-name">{x[0]}</div>\n<div class="sniped-value">{x[1]}</div></div>' for x in sniped])
 
+def to_flt_or_none(val):
+    return f'{val:.2f}' if val else 'None'
+
 def generate_profile_html(user, stats, avatar_url):
     user_awards = gen_award_div(stats.awards)
     sniped_most_html_string = gen_sniped_most_html_string(stats.most_sniped)
@@ -25,11 +28,7 @@ def generate_profile_html(user, stats, avatar_url):
     url_idx = math.floor(user.karma / 100)
     url_idx = min(url_idx, len(karma_urls))
     karma_url=karma_urls[url_idx]
-
-#  <img src={karma_url}
-# style="width:33px; height:33px;margin-bottom: 2px; margin-top: 1px" alt="bebe">
-# <div class="value" style="margin-top: -11px;">{user.karma:.2f}</div>
-
+    
     return f'''
 <!DOCTYPE html>
 <html lang="en">
@@ -71,13 +70,13 @@ def generate_profile_html(user, stats, avatar_url):
                         <div class="avg-score">
                             <div class="title">Avg. Score</div>
                             <i class="fa fa-wheelchair-alt"></i>
-                            <div class="value">{stats.avg_rate:.2f}</div>
+                            <div class="value">{to_flt_or_none(stats.avg_rate)}</div>
                         </div>
 
                         <div class="your-avg-score">
                             <div class="title">Title Score</div>
                             <i class="fa fa-list" aria-hidden="true"></i>
-                            <div class="value">{stats.avg_title_score:.2f}</div>
+                            <div class="value">{to_flt_or_none(stats.avg_title_score)}</div>
                         </div>
 
                         <div class="sniped">

@@ -339,7 +339,7 @@ class UserStats:
 
             WHERE P1.user_id = ?
             GROUP BY U.id
-            ORDER BY count DESC LIMIT 3''', [user_id])
+            ORDER BY count DESC LIMIT 6''', [user_id])
 
         most_sniped = await db.fetchall('''
             SELECT U.name, COUNT(U.id) AS count FROM roll R
@@ -351,7 +351,7 @@ class UserStats:
 
             WHERE P2.user_id = ?
             GROUP BY U.id
-            ORDER BY count DESC LIMIT 3''', [user_id])
+            ORDER BY count DESC LIMIT 6''', [user_id])
 
         finish_time = None
         challenge = await Challenge.fetch_current_challenge(db, guild_id)
@@ -361,13 +361,21 @@ class UserStats:
             if last_round is not None and participant is not None and not participant.has_failed and not last_round.is_finished:
                 finish_time = last_round.finish_time
 
+        awards = [
+            'https://i.imgur.com/9YCUCw2.png',
+            'https://i.imgur.com/3jRu8pl.png',
+            'https://i.imgur.com/zMoQDBO.png',
+            'https://i.imgur.com/cA7yK3V.png',
+            'https://i.imgur.com/RiH7mZA.png',
+        ]
         return UserStats(num_challenges,
                          num_completed,
                          avg_rate,
                          avg_title_score,
                          most_watched,
                          most_sniped,
-                         finish_time)
+                         finish_time,
+                         awards)
 
     def __init__(self,
                  num_challenges,
@@ -376,7 +384,8 @@ class UserStats:
                  avg_title_score,
                  most_watched,
                  most_sniped,
-                 finish_time):
+                 finish_time,
+                 awards):
         self.num_challenges = num_challenges
         self.num_completed = num_completed
         self.avg_rate = avg_rate
@@ -384,3 +393,4 @@ class UserStats:
         self.most_watched = most_watched
         self.most_sniped = most_sniped
         self.finish_time = finish_time
+        self.awards = awards

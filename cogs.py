@@ -3,11 +3,14 @@ import uuid
 import re
 import os
 import random
+import math
 
 from discord import File, Embed
 from discord.ext import commands
 from discord.ext.commands import UserConverter, CommandError
 from datetime import timedelta
+from html_profile.generator import generate_profile_html
+from html_profile.renderer import render_html_from_string
 
 class BotErr(CommandError):
     def __init__(self, text):
@@ -382,6 +385,23 @@ class User(commands.Cog):
             await self.bot.set_progress(ctx, user, int(p3.group(1)))
         else:
             raise BotErr(f'Invalid progress "{progress}".')
+    
+    @commands.command()
+    async def profile2(self, ctx, user: UserConverter = None):
+        '''
+        !profile2 [@user=author]
+        Displays user's profile
+        '''
+        if user is None:
+            user = ctx.message.author
+
+        avatar_url = str(user.avatar_url).replace("webp", "png")
+        user, stats = await self.bot.user_profile(ctx, user)
+        html_string = generate_profile_html(user, stats, avatar_url)
+        pic_name = render_html_from_string(html_string, css_path="./html_profile/styles.css")
+        
+        await ctx.send(file=File(pic_name))
+        os.remove(pic_name)
 
     @commands.command()
     async def progress(self, ctx, *args):

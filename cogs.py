@@ -350,6 +350,8 @@ class User(commands.Cog):
 
         e.add_field(name="Karma", value=str(round(user.karma, 2)), inline=False)
         karma_urls = [
+            'https://i.imgur.com/wscUx1m.png',
+            'https://i.imgur.com/wscUx1m.png', # <-- two black hearts
             'https://i.imgur.com/oiypoFr.png',
             'https://i.imgur.com/4MOnqxX.png',
             'https://i.imgur.com/UJ8yOJ8.png',
@@ -359,8 +361,8 @@ class User(commands.Cog):
             'https://i.imgur.com/XW4kc66.png',
             'https://i.imgur.com/3pPNCGV.png',
         ]
-        url_idx = user.karma // 100
-        url_idx = min(0, max(url_idx, len(karma_urls)))
+        url_idx = math.floor(user.karma / 100)
+        url_idx = min(url_idx, len(karma_urls))
         e.set_image(url=karma_urls[url_idx])
 
         if stats.finish_time is not None:

@@ -313,14 +313,10 @@ class UserStats:
     @staticmethod
     async def fetch(db, user_id, guild_id):
         row = await db.fetchrow('''
-            SELECT COUNT(*), COUNT(CASE WHEN P.failed_round_id IS NOT NULL THEN 1 ELSE 0 END) FROM challenge C
+            SELECT COUNT(*), COALESCE(SUM(CASE WHEN P.failed_round_id IS NULL AND C.finish_time is NOT NULL THEN 1 ELSE 0 END),0) FROM challenge C
             JOIN participant P ON P.challenge_id = C.id
             WHERE P.user_id = ?''', [user_id])
-        num_challenges = 0
-        num_completed = 0
-        if row is not None:
-            num_challenges, num_failed = row
-            num_completed = num_challenges - num_failed
+        num_challenges,num_completed = row
 
         avg_rate = await db.fetchval('''
             SELECT AVG(R.score) FROM roll R

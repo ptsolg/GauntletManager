@@ -354,11 +354,17 @@ class UserStats:
             ORDER BY count DESC LIMIT 6''', [user_id])
 
         awards = await db.fetchall('''
-            SELECT C.award_url FROM challenge C
-            JOIN participant P ON P.challenge_id = C.id
-            WHERE P.user_id = ? AND C.guild_id = ?
-                AND P.failed_round_id IS NULL AND C.award_url IS NOT NULL
-            ORDER BY C.start_time''', [user_id, guild_id])
+            SELECT * FROM (
+                SELECT C.award_url url, C.finish_time time FROM challenge C
+                JOIN participant P ON P.challenge_id = C.id
+                WHERE P.user_id = ? AND C.guild_id = ?
+                    AND P.failed_round_id IS NULL AND C.award_url IS NOT NULL
+                UNION
+                SELECT A.url url, A.time time from award A
+                JOIN user U ON A.user_id = U.id
+                WHERE A.user_id = ?
+            )
+            ORDER BY time''', [user_id, guild_id, user_id])
         awards = [x[0] for x in awards]
 
         finish_time = None

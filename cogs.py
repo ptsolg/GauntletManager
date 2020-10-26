@@ -110,7 +110,6 @@ class Admin(commands.Cog):
             title = args[2]
             user = await UserConverter().convert(ctx, args[1])
         elif len(args) == 3:
-            pool = args[0]
             url = args[-1]
 
         await self.bot.add_title(ctx, pool, user, title, url)

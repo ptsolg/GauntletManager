@@ -5,6 +5,7 @@ import random
 import asyncio
 import aiosqlite
 import sqlite3
+import json
 
 from discord.ext import commands
 from datetime import datetime, timedelta
@@ -59,12 +60,13 @@ class State:
         return lr
 
 class Bot(commands.Bot):
-    def __init__(self, db):
+    def __init__(self, db, config):
         super().__init__(command_prefix='!')
         self.remove_command('help')
         self.add_cog(cogs.Admin(self))
         self.add_cog(cogs.User(self))
         self.db = db
+        self.config = config
 
     async def on_command_error(self, ctx, e):
         cmd = self.get_command(ctx.message.content.lstrip()[1:])
@@ -339,7 +341,8 @@ class Bot(commands.Bot):
         await export(state.guild.spreadsheet_key, state.cc)
         
 async def main():
-    token = open('discord_token.txt').read()
+    config = json.loads(open("config.json", 'rb').read())
+    token = config["discord_token"]
     path = 'challenges.db'
     init_db = not os.path.isfile(path)
     async with aiosqlite.connect(path, detect_types=sqlite3.PARSE_DECLTYPES) as connection:
@@ -347,7 +350,7 @@ async def main():
             await connection.executescript(open('init.sql', 'r').read())
             await connection.commit()
 
-        bot = Bot(Db(connection))
+        bot = Bot(Db(connection), config)
         try:
             await bot.start(token)
         finally:

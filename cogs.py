@@ -116,6 +116,27 @@ class Admin(commands.Cog):
         await ctx.send(f'Title "{title}" has been added to "{pool}" pool.')
 
     @commands.command()
+    async def add_title2(self, ctx, user: UserConverter, url: str, **kwargs):
+        '''
+        !add_title2 @user url [title] [pool='main']
+        [Admin only] Adds a title for specified user
+        '''
+        pool = 'main'
+        
+        if 'pool' in kwargs:
+            pool = kwargs['pool']
+
+        title_info = self.bot.get_api_title_info(url)
+        print(title_info)
+        if 'title' not in kwargs:
+            title = title_info.name
+        else:
+            title = kwargs['title']
+
+        await self.bot.add_title(ctx, pool, user, title, url)
+        await ctx.send(f'Title "{title}" has been added to "{pool}" pool.')
+
+    @commands.command()
     async def add_user(self, ctx, user: UserConverter):
         '''
         !add_user @user

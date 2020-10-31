@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from cogs import BotErr
 from db import Db, Guild, Challenge, Pool, User, Participant, Title, Roll, UserStats
 from export import export
+from thirdparty_api.api_title_info import ApiTitleInfo
 
 class State:
     @staticmethod
@@ -80,6 +81,9 @@ class Bot(commands.Bot):
                 print(f'{e.original.__class__.__name__}: {e.original}')
         else:
             await ctx.send(f'{e}\nUsage:\n{help}')
+
+    def get_api_title_info(self, url):
+        return ApiTitleInfo.from_url(url, self.config)
 
     async def start_challenge(self, ctx, name):
         guild = await Guild.fetch_or_insert(self.db, ctx.message.guild.id)

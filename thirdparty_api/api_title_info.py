@@ -20,9 +20,10 @@ class ApiTitleInfo:
             score = json['rating']['rating']
             return ApiTitleInfo(name, score)
         elif re.search(r'anime', url):
-            # json = await todo add
-            # name = json[<>][<>]
-            # score = json[<>][<>]
-            pass
+            data = mal_api.get_anime_data(url)
+            name = data['name']
+            score = data['score']
+            num_of_episodes = data['num_of_episodes']
+            return ApiTitleInfo(name, score)
         else:
             return None

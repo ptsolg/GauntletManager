@@ -105,7 +105,7 @@ class Guild(Relation):
     async def add_challenge(self, name, start_time):
         id = (await self.db.execute('INSERT INTO challenge (guild_id, name, start_time) VALUES (?, ?, ?)',
             [self.id, name, start_time])).lastrowid
-        return Challenge(self.db, [id, self.id, name, start_time, None])
+        return Challenge(self.db, [id, self.id, name, start_time, None, None])
 
     async def fetch_users(self):
         rows = await self.db.fetchall(f'''
@@ -132,7 +132,7 @@ class User(Relation):
         super().__init__(db, 'user', User.COLS, Cols('id'), row)
 
 class Challenge(Relation):
-    COLS = Cols('id', 'guild_id', 'name', 'start_time', 'finish_time')
+    COLS = Cols('id', 'guild_id', 'name', 'start_time', 'finish_time', 'award_url')
 
     @staticmethod
     async def fetch_current_challenge(db, guild_id):
@@ -191,6 +191,13 @@ class Challenge(Relation):
             SELECT { Title.COLS.join(prefix='T.') } FROM title T
             JOIN pool P ON P.id = T.pool_id
             WHERE P.challenge_id = ? AND T.name = ?''', [self.id, title])
+
+    async def fetch_titles(self):
+        rows = await self.db.fetchall(f'''
+            SELECT { Title.COLS.join(prefix='T.') } FROM title T
+            JOIN pool P ON P.id = T.pool_id
+            WHERE P.challenge_id = ?''', [self.id])
+        return [Title(self.db, row) for row in rows]
 
     async def has_participant(self, user_id):
         return await self.db.fetchval(
@@ -313,14 +320,10 @@ class UserStats:
     @staticmethod
     async def fetch(db, user_id, guild_id):
         row = await db.fetchrow('''
-            SELECT COUNT(*), COUNT(CASE WHEN P.failed_round_id IS NOT NULL THEN 1 ELSE 0 END) FROM challenge C
+            SELECT COUNT(*), COALESCE(SUM(CASE WHEN P.failed_round_id IS NULL AND C.finish_time is NOT NULL THEN 1 ELSE 0 END),0) FROM challenge C
             JOIN participant P ON P.challenge_id = C.id
             WHERE P.user_id = ?''', [user_id])
-        num_challenges = 0
-        num_completed = 0
-        if row is not None:
-            num_challenges, num_failed = row
-            num_completed = num_challenges - num_failed
+        num_challenges,num_completed = row
 
         avg_rate = await db.fetchval('''
             SELECT AVG(R.score) FROM roll R
@@ -343,7 +346,7 @@ class UserStats:
 
             WHERE P1.user_id = ?
             GROUP BY U.id
-            ORDER BY count DESC LIMIT 3''', [user_id])
+            ORDER BY count DESC LIMIT 6''', [user_id])
 
         most_sniped = await db.fetchall('''
             SELECT U.name, COUNT(U.id) AS count FROM roll R
@@ -355,7 +358,21 @@ class UserStats:
 
             WHERE P2.user_id = ?
             GROUP BY U.id
-            ORDER BY count DESC LIMIT 3''', [user_id])
+            ORDER BY count DESC LIMIT 6''', [user_id])
+
+        awards = await db.fetchall('''
+            SELECT * FROM (
+                SELECT C.award_url url, C.finish_time time FROM challenge C
+                JOIN participant P ON P.challenge_id = C.id
+                WHERE P.user_id = ? AND C.guild_id = ?
+                    AND P.failed_round_id IS NULL AND C.award_url IS NOT NULL
+                UNION
+                SELECT A.url url, A.time time from award A
+                JOIN user U ON A.user_id = U.id
+                WHERE A.user_id = ?
+            )
+            ORDER BY time''', [user_id, guild_id, user_id])
+        awards = [x[0] for x in awards]
 
         finish_time = None
         challenge = await Challenge.fetch_current_challenge(db, guild_id)
@@ -371,7 +388,8 @@ class UserStats:
                          avg_title_score,
                          most_watched,
                          most_sniped,
-                         finish_time)
+                         finish_time,
+                         awards)
 
     def __init__(self,
                  num_challenges,
@@ -380,7 +398,8 @@ class UserStats:
                  avg_title_score,
                  most_watched,
                  most_sniped,
-                 finish_time):
+                 finish_time,
+                 awards):
         self.num_challenges = num_challenges
         self.num_completed = num_completed
         self.avg_rate = avg_rate
@@ -388,3 +407,4 @@ class UserStats:
         self.most_watched = most_watched
         self.most_sniped = most_sniped
         self.finish_time = finish_time
+        self.awards = awards

@@ -3,13 +3,16 @@ import uuid
 import re
 import os
 import random
+import math
 
 from discord import File, Embed
 from discord.ext import commands
-from discord.ext.commands import UserConverter
+from discord.ext.commands import UserConverter, CommandError
 from datetime import timedelta
+from html_profile.generator import generate_profile_html
+from html_profile.renderer import render_html_from_string
 
-class BotErr(Exception):
+class BotErr(CommandError):
     def __init__(self, text):
         self.text = text
 
@@ -107,8 +110,28 @@ class Admin(commands.Cog):
             title = args[2]
             user = await UserConverter().convert(ctx, args[1])
         elif len(args) == 3:
-            pool = args[0]
             url = args[-1]
+
+        await self.bot.add_title(ctx, pool, user, title, url)
+        await ctx.send(f'Title "{title}" has been added to "{pool}" pool.')
+
+    @commands.command()
+    async def add_title2(self, ctx, user: UserConverter, url: str, **kwargs):
+        '''
+        !add_title2 @user url [title] [pool='main']
+        [Admin only] Adds a title for specified user
+        '''
+        pool = 'main'
+        
+        if 'pool' in kwargs:
+            pool = kwargs['pool']
+
+        title_info = self.bot.get_api_title_info(url)
+        print(title_info)
+        if 'title' not in kwargs:
+            title = title_info.name
+        else:
+            title = kwargs['title']
 
         await self.bot.add_title(ctx, pool, user, title, url)
         await ctx.send(f'Title "{title}" has been added to "{pool}" pool.')
@@ -128,9 +151,9 @@ class Admin(commands.Cog):
         !create_poll
         [Admin only] Creates a poll of all titles to vote for which ones people have seen
         '''
-        challenge = await self.bot.current_challenge(ctx)
-        for t in await challenge.titles():
-            msg = await ctx.send(t[1])
+        titles = await self.bot.current_titles(ctx)
+        for t in titles:
+            msg = await ctx.send(t.name)
             await msg.add_reaction('👀')
 
     @commands.command()
@@ -279,18 +302,18 @@ class Admin(commands.Cog):
         title1, title2 = await self.bot.swap(ctx, user1, user2)
         await ctx.send(f'User {user1.mention} got "{title2.name}". User "{user2.mention}" got "{title1.name}".')
 
+    @commands.command()
+    async def set_spreadsheet_key(self, ctx, key: str):
+        '''
+        !set_spreadsheet_key key
+        Sets google sheets key
+        '''
+        await self.bot.set_spreadsheet_key(ctx, key)
+        await ctx.send('Done.')
+
 class User(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    @commands.command()
-    async def export(self, ctx, ext: str):
-        '''
-        !export json|xlsx
-        Exports data
-        '''
-        # todo
-        pass
 
     @commands.command()
     async def help(self, ctx):
@@ -350,6 +373,8 @@ class User(commands.Cog):
 
         e.add_field(name="Karma", value=str(round(user.karma, 2)), inline=False)
         karma_urls = [
+            'https://i.imgur.com/wscUx1m.png',
+            'https://i.imgur.com/wscUx1m.png', # <-- two black hearts
             'https://i.imgur.com/oiypoFr.png',
             'https://i.imgur.com/4MOnqxX.png',
             'https://i.imgur.com/UJ8yOJ8.png',
@@ -359,8 +384,8 @@ class User(commands.Cog):
             'https://i.imgur.com/XW4kc66.png',
             'https://i.imgur.com/3pPNCGV.png',
         ]
-        url_idx = user.karma // 100
-        url_idx = min(0, max(url_idx, len(karma_urls)))
+        url_idx = math.floor(user.karma / 100)
+        url_idx = min(url_idx, len(karma_urls))
         e.set_image(url=karma_urls[url_idx])
 
         if stats.finish_time is not None:
@@ -380,6 +405,23 @@ class User(commands.Cog):
             await self.bot.set_progress(ctx, user, int(p3.group(1)))
         else:
             raise BotErr(f'Invalid progress "{progress}".')
+    
+    @commands.command()
+    async def profile2(self, ctx, user: UserConverter = None):
+        '''
+        !profile2 [@user=author]
+        Displays user's profile
+        '''
+        if user is None:
+            user = ctx.message.author
+
+        avatar_url = str(user.avatar_url).replace("webp", "png")
+        user, stats = await self.bot.user_profile(ctx, user)
+        html_string = generate_profile_html(user, stats, avatar_url)
+        pic_name = render_html_from_string(html_string, css_path="./html_profile/styles.css")
+        
+        await ctx.send(file=File(pic_name))
+        os.remove(pic_name)
 
     @commands.command()
     async def progress(self, ctx, *args):
@@ -496,15 +538,6 @@ class User(commands.Cog):
 
         await self.bot.set_name(user, name)
         await ctx.send(f'{user.mention} got "{name}" as a new name.')
-
-    @commands.command()
-    async def set_spreadsheet_key(self, ctx, key: str):
-        '''
-        !set_spreadsheet_key key
-        Sets google sheets key
-        '''
-        await self.bot.set_spreadsheet_key(ctx, key)
-        await ctx.send('Done.')
 
     @commands.command()
     async def sync(self, ctx):

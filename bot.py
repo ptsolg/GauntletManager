@@ -5,12 +5,14 @@ import random
 import asyncio
 import aiosqlite
 import sqlite3
+import json
 
 from discord.ext import commands
 from datetime import datetime, timedelta
 from cogs import BotErr
 from db import Db, Guild, Challenge, Pool, User, Participant, Title, Roll, UserStats
 from export import export
+from thirdparty_api.api_title_info import ApiTitleInfo
 
 class State:
     @staticmethod
@@ -51,6 +53,11 @@ class State:
         BotErr.raise_if(t is None, f'Title "{name}" does not exist.')
         return t
 
+    async def fetch_titles(self):
+        t = await self.cc.fetch_titles()
+        # BotErr.raise_if(t is None, f'fetch_titles')
+        return t
+
     async def fetch_last_round(self, allow_past_deadline=False):
         lr = await self.cc.fetch_last_round()
         BotErr.raise_if(lr is None, 'Create a new round first.')
@@ -59,12 +66,13 @@ class State:
         return lr
 
 class Bot(commands.Bot):
-    def __init__(self, db):
+    def __init__(self, db, config):
         super().__init__(command_prefix='!')
         self.remove_command('help')
         self.add_cog(cogs.Admin(self))
         self.add_cog(cogs.User(self))
         self.db = db
+        self.config = config
 
     async def on_command_error(self, ctx, e):
         cmd = self.get_command(ctx.message.content.lstrip()[1:])
@@ -78,6 +86,13 @@ class Bot(commands.Bot):
                 print(f'{e.original.__class__.__name__}: {e.original}')
         else:
             await ctx.send(f'{e}\nUsage:\n{help}')
+
+    def get_api_title_info(self, url):
+        return ApiTitleInfo.from_url(url, self.config)
+
+    async def current_titles(self, ctx):
+        state = await State.fetch(self, ctx, allow_started=True)
+        return await state.fetch_titles()
 
     async def start_challenge(self, ctx, name):
         guild = await Guild.fetch_or_insert(self.db, ctx.message.guild.id)
@@ -339,7 +354,8 @@ class Bot(commands.Bot):
         await export(state.guild.spreadsheet_key, state.cc)
         
 async def main():
-    token = open('discord_token.txt').read()
+    config = json.loads(open("config.json", 'rb').read())
+    token = config["discord_token"]
     path = 'challenges.db'
     init_db = not os.path.isfile(path)
     async with aiosqlite.connect(path, detect_types=sqlite3.PARSE_DECLTYPES) as connection:
@@ -347,7 +363,7 @@ async def main():
             await connection.executescript(open('init.sql', 'r').read())
             await connection.commit()
 
-        bot = Bot(Db(connection))
+        bot = Bot(Db(connection), config)
         try:
             await bot.start(token)
         finally:

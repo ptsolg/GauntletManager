@@ -22,7 +22,8 @@ CREATE TABLE challenge (
 	guild_id INTEGER NOT NULL,
 	name TEXT NOT NULL,
 	start_time TIMESTAMP NOT NULL,
-	finish_time TIMESTAMP,
+	finish_time TIMESTAMP DEFAULT NULL,
+	award_url TEXT DEFAULT NULL,
 
 	FOREIGN KEY (guild_id) REFERENCES guild (id)
 );
@@ -85,3 +86,10 @@ CREATE TABLE roll (
 	FOREIGN KEY (participant_id) REFERENCES participant (id) ON DELETE CASCADE,
 	FOREIGN KEY (title_id) REFERENCES title (id) ON DELETE CASCADE
 );
+
+CREATE TABLE award (
+	participant_id INTEGER NOT NULL,
+	"url" TEXT DEFAULT NULL,
+	"time" TIMESTAMP NOT NULL,
+	FOREIGN KEY (participant_id) REFERENCES participant (id)
+)

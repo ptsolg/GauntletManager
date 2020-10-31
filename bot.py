@@ -53,6 +53,11 @@ class State:
         BotErr.raise_if(t is None, f'Title "{name}" does not exist.')
         return t
 
+    async def fetch_titles(self):
+        t = await self.cc.fetch_titles()
+        # BotErr.raise_if(t is None, f'fetch_titles')
+        return t
+
     async def fetch_last_round(self, allow_past_deadline=False):
         lr = await self.cc.fetch_last_round()
         BotErr.raise_if(lr is None, 'Create a new round first.')
@@ -84,6 +89,10 @@ class Bot(commands.Bot):
 
     def get_api_title_info(self, url):
         return ApiTitleInfo.from_url(url, self.config)
+
+    async def current_titles(self, ctx):
+        state = await State.fetch(self, ctx, allow_started=True)
+        return await state.fetch_titles()
 
     async def start_challenge(self, ctx, name):
         guild = await Guild.fetch_or_insert(self.db, ctx.message.guild.id)

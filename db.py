@@ -192,6 +192,13 @@ class Challenge(Relation):
             JOIN pool P ON P.id = T.pool_id
             WHERE P.challenge_id = ? AND T.name = ?''', [self.id, title])
 
+    async def fetch_titles(self):
+        rows = await self.db.fetchall(f'''
+            SELECT { Title.COLS.join(prefix='T.') } FROM title T
+            JOIN pool P ON P.id = T.pool_id
+            WHERE P.challenge_id = ?''', [self.id])
+        return [Title(self.db, row) for row in rows]
+
     async def has_participant(self, user_id):
         return await self.db.fetchval(
             'SELECT COUNT(1) FROM participant WHERE challenge_id = ? AND user_id = ?', [self.id, user_id])

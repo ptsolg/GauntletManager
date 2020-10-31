@@ -151,9 +151,9 @@ class Admin(commands.Cog):
         !create_poll
         [Admin only] Creates a poll of all titles to vote for which ones people have seen
         '''
-        challenge = await self.bot.current_challenge(ctx)
-        for t in await challenge.titles():
-            msg = await ctx.send(t[1])
+        titles = await self.bot.current_titles(ctx)
+        for t in titles:
+            msg = await ctx.send(t.name)
             await msg.add_reaction('👀')
 
     @commands.command()

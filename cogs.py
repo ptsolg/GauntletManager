@@ -561,7 +561,7 @@ class User(commands.Cog):
     async def sync(self, ctx):
         '''
         !sync
-        Syncs with google sheets doc
+        Syncs current challenge with google sheets doc
         '''
         await self.bot.sync(ctx)
         await ctx.send('Done.')
@@ -569,8 +569,8 @@ class User(commands.Cog):
     @commands.command()
     async def sync_all(self, ctx):
         '''
-        !sync
-        Syncs with google sheets doc
+        !sync_all
+        Syncs all guild challenges with google sheets doc
         '''
         await self.bot.sync_all(ctx)
         await ctx.send('Done.')

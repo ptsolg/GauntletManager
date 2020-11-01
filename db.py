@@ -117,7 +117,7 @@ class Guild(Relation):
 
     async def fetch_challenges(self):
         rows = await self.db.fetchall(f'''
-            SELECT { Challenge.COLS.join(prefix='T.') } FROM challenge C
+            SELECT { Challenge.COLS.join(prefix='C.') } FROM challenge C
             WHERE C.guild_id = ?''', [self.id])
         return [Challenge(self.db, row) for row in rows]
 

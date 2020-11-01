@@ -85,6 +85,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.add_pool(ctx, name)
         await ctx.send(f'Pool "{name}" has been created.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def add_title(self, ctx, *args):
@@ -114,6 +115,7 @@ class Admin(commands.Cog):
 
         await self.bot.add_title(ctx, pool, user, title, url)
         await ctx.send(f'Title "{title}" has been added to "{pool}" pool.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def add_title2(self, ctx, user: UserConverter, url: str, **kwargs):
@@ -135,6 +137,7 @@ class Admin(commands.Cog):
 
         await self.bot.add_title(ctx, pool, user, title, url)
         await ctx.send(f'Title "{title}" has been added to "{pool}" pool.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def add_user(self, ctx, user: UserConverter):
@@ -144,6 +147,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.add_user(ctx, user)
         await ctx.send(f'User {user.mention} has been added.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def create_poll(self, ctx):
@@ -197,6 +201,7 @@ class Admin(commands.Cog):
         user2 = random.choice(candidates)
         title1, title2 = await self.bot.swap(ctx, user1, user2)
         await ctx.send(f'User {user1.mention} got "{title2}". User "{user2.mention}" got "{title1}".')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def remove_pool(self, ctx, name: str):
@@ -206,6 +211,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.remove_pool(ctx, name)
         await ctx.send(f'Pool "{name}" has been removed')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def remove_title(self, ctx, title: str):
@@ -215,6 +221,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.remove_title(ctx, title)
         await ctx.send(f'Title "{title}" has been removed')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def remove_user(self, ctx, user: UserConverter):
@@ -224,6 +231,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.remove_user(ctx, user)
         await ctx.send(f'User {user.mention} has been removed.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def rename_pool(self, ctx, old_name: str, new_name: str):
@@ -233,6 +241,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.rename_pool(ctx, old_name, new_name)
         await ctx.send(f'Pool "{old_name}" has been renamed to "{new_name}"')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def reroll(self, ctx, user: UserConverter, pool: str = 'main'):
@@ -242,6 +251,7 @@ class Admin(commands.Cog):
         '''
         title = await self.bot.reroll(ctx, user, pool)
         await ctx.send(f'User {user.mention} rolled "{title.name}" from "{pool}" pool.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def set_title(self, ctx, user: UserConverter, title: str):
@@ -251,6 +261,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.set_title(ctx, user, title)
         await ctx.send(f'Title "{title}" has been assigned to {user.mention}')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def start_challenge(self, ctx, name: str):
@@ -260,6 +271,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.start_challenge(ctx, name)
         await ctx.send(f'Challenge "{name}" has been created.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def start_round(self, ctx, days: int, pool: str = 'main'):
@@ -292,6 +304,7 @@ class Admin(commands.Cog):
             await asyncio.sleep(1)
 
         await ctx.send(f'Round {rnd.num} ({short_fmt(rnd.start_time)} - {short_fmt(rnd.finish_time)}) starts right now.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def swap(self, ctx, user1: UserConverter, user2: UserConverter):
@@ -301,6 +314,7 @@ class Admin(commands.Cog):
         '''
         title1, title2 = await self.bot.swap(ctx, user1, user2)
         await ctx.send(f'User {user1.mention} got "{title2.name}". User "{user2.mention}" got "{title1.name}".')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def set_spreadsheet_key(self, ctx, key: str):
@@ -481,6 +495,7 @@ class User(commands.Cog):
 
         title = await self.bot.rate(ctx, user, score)
         await ctx.send(f'User {user.mention} gave {score} to "{title.name}".')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def rename_title(self, ctx, old_name: str, new_name: str):
@@ -490,6 +505,7 @@ class User(commands.Cog):
         '''
         await self.bot.rename_title(ctx, old_name, new_name)
         await ctx.send(f'Title "{old_name}" has been renamed to "{new_name}".')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def set_color(self, ctx, *args):
@@ -513,6 +529,7 @@ class User(commands.Cog):
 
         await self.bot.set_color(user, color)
         await ctx.send('Color has been changed.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def set_name(self, ctx, *args):
@@ -538,6 +555,7 @@ class User(commands.Cog):
 
         await self.bot.set_name(user, name)
         await ctx.send(f'{user.mention} got "{name}" as a new name.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def sync(self, ctx):
@@ -546,4 +564,13 @@ class User(commands.Cog):
         Syncs with google sheets doc
         '''
         await self.bot.sync(ctx)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def sync_all(self, ctx):
+        '''
+        !sync
+        Syncs with google sheets doc
+        '''
+        await self.bot.sync_all(ctx)
         await ctx.send('Done.')

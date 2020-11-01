@@ -115,6 +115,12 @@ class Guild(Relation):
             WHERE C.guild_id = ?''', [self.id])
         return [User(self.db, row) for row in rows]
 
+    async def fetch_challenges(self):
+        rows = await self.db.fetchall(f'''
+            SELECT { Challenge.COLS.join(prefix='T.') } FROM challenge C
+            WHERE C.guild_id = ?''', [self.id])
+        return [Challenge(self.db, row) for row in rows]
+
 class User(Relation):
     COLS = Cols('id', 'discord_id', 'color', 'name', 'karma')
 

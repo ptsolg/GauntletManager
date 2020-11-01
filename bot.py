@@ -352,6 +352,15 @@ class Bot(commands.Bot):
         state = await State.fetch(self, ctx, allow_started=True)
         BotErr.raise_if(state.guild.spreadsheet_key is None, 'Spreadsheet key is not set.')
         await export(state.guild.spreadsheet_key, state.cc)
+
+    async def sync_all(self, ctx):
+        guild = await Guild.fetch_or_insert(self.db, ctx.message.guild.id)  # todo: move logic?
+        challenges = await guild.fetch_challenges()
+        BotErr.raise_if(guild.spreadsheet_key is None, 'Spreadsheet key is not set.') # todo: maybe its bad to have single
+                                                                                            # spreadsheet_key per guild, maybe
+                                                                                            # we need to store it in challange column
+        for c in challenges:
+            await export(guild.spreadsheet_key, c)
         
 async def main():
     config = json.loads(open("config.json", 'rb').read())

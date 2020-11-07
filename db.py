@@ -118,11 +118,12 @@ class Guild(Relation):
     async def fetch_challenges(self):
         rows = await self.db.fetchall(f'''
             SELECT { Challenge.COLS.join(prefix='C.') } FROM challenge C
-            WHERE C.guild_id = ?''', [self.id])
+            WHERE C.guild_id = ?
+            ORDER BY C.start_time''', [self.id])
         return [Challenge(self.db, row) for row in rows]
 
 class User(Relation):
-    COLS = Cols('id', 'discord_id', 'color', 'name', 'karma')
+    COLS = Cols('id', 'discord_id', 'color', 'name')
 
     @staticmethod
     async def fetch_or_insert(db, discord_id, name):
@@ -331,6 +332,69 @@ class Roll(Relation):
     async def fetch_title(self):
         return await fromrow(Title, self.db, f'SELECT { Title.COLS } FROM title WHERE id = ?', [self.title_id])
 
+    async def fetch_participant(self):
+        row = await self.db.fetchrow(f'''
+            SELECT { User.COLS.join(prefix='U.') }
+            FROM roll R
+            JOIN participant P ON P.id = R.participant_id
+            JOIN user U ON P.user_id = U.id
+            WHERE R.round_id = ? AND R.participant_id = ?''', [self.round_id, self.participant_id])
+        return User(self.db, row)
+
+    async def fetch_title_author(self):          
+        row = await self.db.fetchrow(f'''
+            SELECT { User.COLS.join(prefix='U.') }
+            FROM roll R
+            JOIN title T ON T.id = R.title_id
+            JOIN participant P ON P.id = T.participant_id
+            JOIN user U ON P.user_id = U.id
+            WHERE R.round_id = ? AND R.participant_id = ?''', [self.round_id, self.participant_id])
+        return User(self.db, row)
+
+class KarmaHistory(Relation):
+    COLS = Cols('user_id', 'karma', 'time')
+
+    def __init__(self, db, row):
+        super().__init__(db, 'karma_history', KarmaHistory.COLS, Cols('user_id', 'time'), row)
+
+    @staticmethod
+    async def fetch_user_karma(db, user_id): # todo test this function
+        rows = await db.fetchall(f'''
+            SELECT karma
+            FROM karma_history
+            WHERE user_id = ?
+            ORDER BY time''', [user_id])
+
+        print(rows)
+        if rows:
+            return rows[-1][0]
+        else:
+            return None # todo: maybe use constant -> starting_karma
+
+    @staticmethod
+    async def clear_user_karma_history(db, user_id): # todo test this function
+        await db.execute(f'''
+            DELETE FROM karma_history
+            WHERE user_id = ?''', [user_id])
+
+    @staticmethod
+    async def insert_or_update_karma(db, user_id, karma, time): # todo test this function
+        row = await db.fetchrow(f'''
+            SELECT *
+            FROM karma_history
+            WHERE user_id = ? AND time = ?
+            ORDER BY time''', [user_id, time])
+
+        if row is None:
+            await db.execute('''
+                INSERT INTO karma_history
+                (user_id, karma, time)
+                VALUES(?, ?, ?)''', [user_id, karma, time])
+        else:
+            karma_history = KarmaHistory(db, row)
+            karma_history.karma = karma
+            await karma_history.update()
+
 class UserStats:
     @staticmethod
     async def fetch(db, user_id, guild_id):
@@ -389,6 +453,8 @@ class UserStats:
             ORDER BY time''', [user_id, guild_id, user_id])
         awards = [x[0] for x in awards]
 
+        karma = await KarmaHistory.fetch_user_karma(db, user_id)
+
         finish_time = None
         challenge = await Challenge.fetch_current_challenge(db, guild_id)
         if challenge is not None:
@@ -404,6 +470,7 @@ class UserStats:
                          most_watched,
                          most_sniped,
                          finish_time,
+                         karma,
                          awards)
 
     def __init__(self,
@@ -414,6 +481,7 @@ class UserStats:
                  most_watched,
                  most_sniped,
                  finish_time,
+                 karma,
                  awards):
         self.num_challenges = num_challenges
         self.num_completed = num_completed
@@ -422,4 +490,5 @@ class UserStats:
         self.most_watched = most_watched
         self.most_sniped = most_sniped
         self.finish_time = finish_time
+        self.karma = karma
         self.awards = awards

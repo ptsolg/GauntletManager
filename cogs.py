@@ -367,6 +367,15 @@ class Admin(commands.Cog):
         await self.bot.remove_award(ctx, user, url)
         await ctx.send('Done.')
 
+    @commands.command()
+    async def recalc_karma(self, ctx):
+        '''
+        !recalc_karma
+        [Admin only] Recalculates karama for every user in the guild
+        '''
+        await self.bot.recalc_karma(ctx)
+        await ctx.send('Done.')
+
 class User(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -374,7 +383,7 @@ class User(commands.Cog):
     @commands.command()
     async def help(self, ctx, cog_name = None):
         '''
-        !help
+        !help [@cog_name=None]
         Prints this message
         '''
         embed = Embed(title="Help", description='', color=0x0000000)
@@ -438,7 +447,7 @@ class User(commands.Cog):
         else:
             e.add_field(name="No Challenges", value='Empty', inline=True)
 
-        e.add_field(name="Karma", value=str(round(user.karma, 2)), inline=False)
+        e.add_field(name="Karma", value=str(round(stats.karma, 2)), inline=False)
         karma_urls = [
             'https://i.imgur.com/wscUx1m.png',
             'https://i.imgur.com/wscUx1m.png', # <-- two black hearts
@@ -451,7 +460,7 @@ class User(commands.Cog):
             'https://i.imgur.com/XW4kc66.png',
             'https://i.imgur.com/3pPNCGV.png',
         ]
-        url_idx = math.floor(user.karma / 100)
+        url_idx = math.floor(stats.karma / 100)
         url_idx = min(url_idx, len(karma_urls))
         e.set_image(url=karma_urls[url_idx])
 

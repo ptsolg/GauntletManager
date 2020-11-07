@@ -10,7 +10,7 @@ import json
 from discord.ext import commands
 from datetime import datetime, timedelta
 from cogs import BotErr
-from db import Db, Guild, Challenge, Pool, User, Participant, Title, Roll, UserStats
+from db import Db, Guild, Challenge, Pool, User, Participant, Title, Roll, KarmaHistory, UserStats
 from export import export
 from thirdparty_api.api_title_info import ApiTitleInfo
 
@@ -208,6 +208,53 @@ class Bot(commands.Bot):
         await self.db.commit()
         return new_round, { users[p.user_id].name: t.name for p, t in zip(participants, rand_titles) }
 
+    async def calc_karma(self, round):
+        if not round.is_finished:
+            return
+        starting_karma = 0
+
+        rolls = await round.fetch_rolls()
+        time = round.finish_time
+        for roll in rolls:
+            proposer = await roll.fetch_title_author()
+            watcher = await roll.fetch_participant()
+
+            score = roll.score
+            if score is not None and watcher.id != proposer.id:
+                proposer_karma = await KarmaHistory.fetch_user_karma(self.db, proposer.id)
+                d_karma = score
+
+                if not proposer_karma:
+                    proposer_karma = starting_karma + d_karma
+                else:
+                    proposer_karma += d_karma
+                await KarmaHistory.insert_or_update_karma(self.db, proposer.id, proposer_karma, time)
+
+                watcher_karma = await KarmaHistory.fetch_user_karma(self.db, watcher.id)
+                d_karma = score if score < 5 else 5 + (score - 5) * 0.25
+
+                if not watcher_karma:
+                    watcher_karma = starting_karma + d_karma
+                else:
+                    watcher_karma += d_karma
+                await KarmaHistory.insert_or_update_karma(self.db, watcher.id, watcher_karma, time)
+
+    # def calculate_karma_diff
+    
+    async def recalc_karma(self, ctx):
+        guild = await Guild.fetch_or_insert(self.db, ctx.message.guild.id)
+        users = await guild.fetch_users()
+        for u in users:
+            await KarmaHistory.clear_user_karma_history(self.db, u.id)
+
+        challenges = await guild.fetch_challenges()
+        for c in challenges:
+            rounds = await c.fetch_rounds()
+            for r in rounds:
+                await self.calc_karma(r)
+        
+        await self.db.commit()
+
     async def _end_round(self, last_round):
         rwp = await last_round.fetch_rolls_watchers_proposers()
         failed_participants = map(lambda x: x[0].participant_id, filter(lambda x: x[0].score is None, rwp))
@@ -215,18 +262,7 @@ class Bot(commands.Bot):
         last_round.is_finished = True
         await last_round.update()
 
-        roll_by_watcher = {x[1].id: x for x in rwp}
-        for roll, watcher, proposer in rwp:
-            d_karma = 0.0
-            if roll.score is not None and watcher.id != proposer.id:
-                d_karma += roll.score
-            proposer_roll, proposer_roll_watcher, proposer_roll_proposer = roll_by_watcher[proposer.id]
-            if proposer_roll.score is not None and proposer_roll_watcher.id != proposer_roll_proposer.id:
-                score = proposer_roll.score
-                d_karma += score if score < 5 else 5 + (score - 5) * 0.25
-            if d_karma != 0:
-                proposer.karma += d_karma
-                await proposer.update()
+        await self.calc_karma(last_round)
 
     async def end_round(self, ctx):
         state = await State.fetch(self, ctx, allow_started=True)
@@ -302,8 +338,9 @@ class Bot(commands.Bot):
 
     async def karma_table(self, ctx):
         guild = await Guild.fetch_or_insert(self.db, ctx.message.guild.id)
-        users = sorted(await guild.fetch_users(), key=lambda x: x.karma, reverse=True)
-        return [(u.name, '{:.1f}'.format(u.karma)) for u in users]
+        users = [ (user, await KarmaHistory.fetch_user_karma(self.db, user.id)) for user in await guild.fetch_users() ]
+        users = sorted(users, key=lambda x: x[1], reverse=True)
+        return [(u[0].name, '{:.1f}'.format(u[1])) for u in users]
 
     async def user_profile(self, ctx, user):
         guild = await Guild.fetch_or_insert(self.db, ctx.message.guild.id)

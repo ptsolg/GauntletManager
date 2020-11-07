@@ -134,6 +134,12 @@ class User(Relation):
             u = User(db, [id, discord_id, color, name, 0.0])
         return u
 
+    async def add_award(self, award_url, time):
+        await self.db.execute('INSERT INTO award (user_id, url, time) VALUES(?, ?, ?)', [self.id, award_url, time])
+
+    async def remove_award(self, award_url):
+        await self.db.execute('DELETE FROM award WHERE url = ? AND user_id = ?', [award_url, self.id])
+
     def __init__(self, db, row):
         super().__init__(db, 'user', User.COLS, Cols('id'), row)
 
@@ -230,6 +236,9 @@ class Challenge(Relation):
         id = (await self.db.execute('INSERT INTO participant (challenge_id, user_id) VALUES (?, ?)',
             [self.id, user_id])).lastrowid
         return Participant(self.db, [id, self.id, user_id, None, None, None])
+
+    async def set_award(self, award_url):
+        await self.db.execute('UPDATE challenge SET award_url = ? WHERE id = ?', [award_url, self.id])
 
 class Participant(Relation):
     COLS = Cols('id', 'challenge_id', 'user_id', 'failed_round_id', 'progress_current', 'progress_total')

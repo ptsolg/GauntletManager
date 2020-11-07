@@ -361,6 +361,20 @@ class Bot(commands.Bot):
                                                                                             # we need to store it in challange column
         for c in challenges:
             await export(guild.spreadsheet_key, c)
+
+    async def set_award(self, ctx, url):
+        state = await State.fetch(self, ctx, allow_started=True)
+        await state.cc.set_award_url(url)
+
+    async def add_award(self, ctx, user, url):
+        state = await State.fetch(self, ctx, allow_started=True)
+        user = await state.fetch_user(user)
+        await user.add_award(url, datetime.now())
+
+    async def remove_award(self, ctx, user, url):
+        state = await State.fetch(self, ctx, allow_started=True)
+        user = await state.fetch_user(user)
+        await user.remove_award(url)
         
 async def main():
     config = json.loads(open("config.json", 'rb').read())

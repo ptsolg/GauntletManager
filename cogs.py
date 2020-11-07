@@ -11,6 +11,7 @@ from discord.ext.commands import UserConverter, CommandError
 from datetime import timedelta
 from html_profile.generator import generate_profile_html
 from html_profile.renderer import render_html_from_string
+from utils import is_vaild_url
 
 class BotErr(CommandError):
     def __init__(self, text):
@@ -27,6 +28,10 @@ class BotErr(CommandError):
 class InvalidNumArguments(BotErr):
     def __init__(self):
         super().__init__('Invalid number of arguments.')
+
+class InvalidUrl(BotErr):
+    def __init__(self):
+        super().__init__('Invalid URL.')
 
 def require_admin_privilege(ctx):
     if 'bot commander' not in map(lambda x: x.name.lower(), ctx.message.author.roles):
@@ -320,9 +325,42 @@ class Admin(commands.Cog):
     async def set_spreadsheet_key(self, ctx, key: str):
         '''
         !set_spreadsheet_key key
-        Sets google sheets key
+        [Admin only] Sets google sheets key
         '''
         await self.bot.set_spreadsheet_key(ctx, key)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def set_award(self, ctx, url: str):
+        '''
+        !set_award url
+        [Admin only] Sets an award for current challenge
+        '''
+        if not is_vaild_url(url):
+            raise InvalidUrl()
+        await self.bot.set_award(ctx, url)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def add_award(self, ctx, user: UserConverter, url: str):
+        '''
+        !add_award @user url
+        [Admin only] Adds an award for a user
+        '''
+        if not is_vaild_url(url):
+            raise InvalidUrl()
+        await self.bot.add_award(ctx, user, url)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def remove_award(self, ctx, user: UserConverter, url: str):
+        '''
+        !add_award @user url
+        [Admin only] Removes an award from a user
+        '''
+        if not is_vaild_url(url):
+            raise InvalidUrl()
+        await self.bot.remove_award(ctx, user, url)
         await ctx.send('Done.')
 
 class User(commands.Cog):

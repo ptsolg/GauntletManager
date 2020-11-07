@@ -33,6 +33,10 @@ class InvalidUrl(BotErr):
     def __init__(self):
         super().__init__('Invalid URL.')
 
+class InvalidCog(BotErr):
+    def __init__(self):
+        super().__init__('Invalid cog name.')
+
 def require_admin_privilege(ctx):
     if 'bot commander' not in map(lambda x: x.name.lower(), ctx.message.author.roles):
         raise BotErr('"Bot Commander" role required.')
@@ -368,22 +372,33 @@ class User(commands.Cog):
         self.bot = bot
 
     @commands.command()
-    async def help(self, ctx):
+    async def help(self, ctx, cog_name = None):
         '''
         !help
         Prints this message
         '''
         embed = Embed(title="Help", description='', color=0x0000000)
-        commands = []
-        for command in self.bot.commands:
-            if not command.help:
-                continue
-            lines = command.help.split('\n')
-            desc = lines[-1]
-            name = '\n'.join(lines[:-1])
-            commands.append((name, desc))
-        for name, desc in sorted(commands):
-            embed.add_field(name=name, value=desc, inline=False)
+
+        if cog_name == None:
+            embed.add_field(name='Use one of these', value='\u200b', inline=False)
+            for cog_name in self.bot.cogs:
+                embed.add_field(name=f'!help {cog_name}', value='\u200b', inline=False)
+        else:
+            if cog_name in self.bot.cogs:
+                commands = []
+                cog = self.bot.get_cog(cog_name)
+                for command in cog.get_commands():
+                    if not command.help:
+                        continue
+                    lines = command.help.split('\n')
+                    desc = lines[-1]
+                    name = '\n'.join(lines[:-1])
+                    commands.append((name, desc))
+
+                for name, desc in sorted(commands):
+                    embed.add_field(name=name, value=desc, inline=False)
+            else:
+                raise InvalidCog()
         await ctx.send(embed=embed)
 
     @commands.command()

@@ -1,6 +1,7 @@
 *.txt
 *.db
 *.json
+*.html
 .vscode/*
 **/__pycache__/*
 

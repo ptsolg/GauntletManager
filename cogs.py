@@ -11,6 +11,7 @@ from discord.ext.commands import UserConverter, CommandError
 from datetime import timedelta
 from html_profile.generator import generate_profile_html
 from html_profile.renderer import render_html_from_string
+from utils import is_vaild_url
 
 class BotErr(CommandError):
     def __init__(self, text):
@@ -27,6 +28,14 @@ class BotErr(CommandError):
 class InvalidNumArguments(BotErr):
     def __init__(self):
         super().__init__('Invalid number of arguments.')
+
+class InvalidUrl(BotErr):
+    def __init__(self):
+        super().__init__('Invalid URL.')
+
+class InvalidCog(BotErr):
+    def __init__(self):
+        super().__init__('Invalid cog name.')
 
 def require_admin_privilege(ctx):
     if 'bot commander' not in map(lambda x: x.name.lower(), ctx.message.author.roles):
@@ -85,6 +94,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.add_pool(ctx, name)
         await ctx.send(f'Pool "{name}" has been created.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def add_title(self, ctx, *args):
@@ -114,6 +124,7 @@ class Admin(commands.Cog):
 
         await self.bot.add_title(ctx, pool, user, title, url)
         await ctx.send(f'Title "{title}" has been added to "{pool}" pool.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def add_title2(self, ctx, user: UserConverter, url: str, **kwargs):
@@ -135,6 +146,7 @@ class Admin(commands.Cog):
 
         await self.bot.add_title(ctx, pool, user, title, url)
         await ctx.send(f'Title "{title}" has been added to "{pool}" pool.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def add_user(self, ctx, user: UserConverter):
@@ -144,6 +156,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.add_user(ctx, user)
         await ctx.send(f'User {user.mention} has been added.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def create_poll(self, ctx):
@@ -197,6 +210,7 @@ class Admin(commands.Cog):
         user2 = random.choice(candidates)
         title1, title2 = await self.bot.swap(ctx, user1, user2)
         await ctx.send(f'User {user1.mention} got "{title2}". User "{user2.mention}" got "{title1}".')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def remove_pool(self, ctx, name: str):
@@ -206,6 +220,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.remove_pool(ctx, name)
         await ctx.send(f'Pool "{name}" has been removed')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def remove_title(self, ctx, title: str):
@@ -215,6 +230,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.remove_title(ctx, title)
         await ctx.send(f'Title "{title}" has been removed')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def remove_user(self, ctx, user: UserConverter):
@@ -224,6 +240,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.remove_user(ctx, user)
         await ctx.send(f'User {user.mention} has been removed.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def rename_pool(self, ctx, old_name: str, new_name: str):
@@ -233,6 +250,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.rename_pool(ctx, old_name, new_name)
         await ctx.send(f'Pool "{old_name}" has been renamed to "{new_name}"')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def reroll(self, ctx, user: UserConverter, pool: str = 'main'):
@@ -242,6 +260,7 @@ class Admin(commands.Cog):
         '''
         title = await self.bot.reroll(ctx, user, pool)
         await ctx.send(f'User {user.mention} rolled "{title.name}" from "{pool}" pool.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def set_title(self, ctx, user: UserConverter, title: str):
@@ -251,6 +270,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.set_title(ctx, user, title)
         await ctx.send(f'Title "{title}" has been assigned to {user.mention}')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def start_challenge(self, ctx, name: str):
@@ -260,6 +280,7 @@ class Admin(commands.Cog):
         '''
         await self.bot.start_challenge(ctx, name)
         await ctx.send(f'Challenge "{name}" has been created.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def start_round(self, ctx, days: int, pool: str = 'main'):
@@ -292,6 +313,7 @@ class Admin(commands.Cog):
             await asyncio.sleep(1)
 
         await ctx.send(f'Round {rnd.num} ({short_fmt(rnd.start_time)} - {short_fmt(rnd.finish_time)}) starts right now.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def swap(self, ctx, user1: UserConverter, user2: UserConverter):
@@ -301,14 +323,57 @@ class Admin(commands.Cog):
         '''
         title1, title2 = await self.bot.swap(ctx, user1, user2)
         await ctx.send(f'User {user1.mention} got "{title2.name}". User "{user2.mention}" got "{title1.name}".')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def set_spreadsheet_key(self, ctx, key: str):
         '''
         !set_spreadsheet_key key
-        Sets google sheets key
+        [Admin only] Sets google sheets key
         '''
         await self.bot.set_spreadsheet_key(ctx, key)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def set_award(self, ctx, url: str):
+        '''
+        !set_award url
+        [Admin only] Sets an award for current challenge
+        '''
+        if not is_vaild_url(url):
+            raise InvalidUrl()
+        await self.bot.set_award(ctx, url)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def add_award(self, ctx, user: UserConverter, url: str):
+        '''
+        !add_award @user url
+        [Admin only] Adds an award for a user
+        '''
+        if not is_vaild_url(url):
+            raise InvalidUrl()
+        await self.bot.add_award(ctx, user, url)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def remove_award(self, ctx, user: UserConverter, url: str):
+        '''
+        !add_award @user url
+        [Admin only] Removes an award from a user
+        '''
+        if not is_vaild_url(url):
+            raise InvalidUrl()
+        await self.bot.remove_award(ctx, user, url)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def recalc_karma(self, ctx):
+        '''
+        !recalc_karma
+        [Admin only] Recalculates karama for every user in the guild
+        '''
+        await self.bot.recalc_karma(ctx)
         await ctx.send('Done.')
 
 class User(commands.Cog):
@@ -316,22 +381,33 @@ class User(commands.Cog):
         self.bot = bot
 
     @commands.command()
-    async def help(self, ctx):
+    async def help(self, ctx, cog_name = None):
         '''
-        !help
+        !help [@cog_name=None]
         Prints this message
         '''
         embed = Embed(title="Help", description='', color=0x0000000)
-        commands = []
-        for command in self.bot.commands:
-            if not command.help:
-                continue
-            lines = command.help.split('\n')
-            desc = lines[-1]
-            name = '\n'.join(lines[:-1])
-            commands.append((name, desc))
-        for name, desc in sorted(commands):
-            embed.add_field(name=name, value=desc, inline=False)
+
+        if cog_name == None:
+            embed.add_field(name='Use one of these', value='\u200b', inline=False)
+            for cog_name in self.bot.cogs:
+                embed.add_field(name=f'!help {cog_name}', value='\u200b', inline=False)
+        else:
+            if cog_name in self.bot.cogs:
+                commands = []
+                cog = self.bot.get_cog(cog_name)
+                for command in cog.get_commands():
+                    if not command.help:
+                        continue
+                    lines = command.help.split('\n')
+                    desc = lines[-1]
+                    name = '\n'.join(lines[:-1])
+                    commands.append((name, desc))
+
+                for name, desc in sorted(commands):
+                    embed.add_field(name=name, value=desc, inline=False)
+            else:
+                raise InvalidCog()
         await ctx.send(embed=embed)
 
     @commands.command()
@@ -371,7 +447,7 @@ class User(commands.Cog):
         else:
             e.add_field(name="No Challenges", value='Empty', inline=True)
 
-        e.add_field(name="Karma", value=str(round(user.karma, 2)), inline=False)
+        e.add_field(name="Karma", value=str(round(stats.karma, 2)), inline=False)
         karma_urls = [
             'https://i.imgur.com/wscUx1m.png',
             'https://i.imgur.com/wscUx1m.png', # <-- two black hearts
@@ -384,7 +460,7 @@ class User(commands.Cog):
             'https://i.imgur.com/XW4kc66.png',
             'https://i.imgur.com/3pPNCGV.png',
         ]
-        url_idx = math.floor(user.karma / 100)
+        url_idx = math.floor(stats.karma / 100)
         url_idx = min(url_idx, len(karma_urls))
         e.set_image(url=karma_urls[url_idx])
 
@@ -481,6 +557,7 @@ class User(commands.Cog):
 
         title = await self.bot.rate(ctx, user, score)
         await ctx.send(f'User {user.mention} gave {score} to "{title.name}".')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def rename_title(self, ctx, old_name: str, new_name: str):
@@ -490,6 +567,7 @@ class User(commands.Cog):
         '''
         await self.bot.rename_title(ctx, old_name, new_name)
         await ctx.send(f'Title "{old_name}" has been renamed to "{new_name}".')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def set_color(self, ctx, *args):
@@ -513,6 +591,7 @@ class User(commands.Cog):
 
         await self.bot.set_color(user, color)
         await ctx.send('Color has been changed.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def set_name(self, ctx, *args):
@@ -538,12 +617,34 @@ class User(commands.Cog):
 
         await self.bot.set_name(user, name)
         await ctx.send(f'{user.mention} got "{name}" as a new name.')
+        await self.bot.sync(ctx)
 
     @commands.command()
     async def sync(self, ctx):
         '''
         !sync
-        Syncs with google sheets doc
+        Syncs current challenge with google sheets doc
         '''
         await self.bot.sync(ctx)
         await ctx.send('Done.')
+
+    @commands.command()
+    async def sync_all(self, ctx):
+        '''
+        !sync_all
+        Syncs all guild challenges with google sheets doc
+        '''
+        await self.bot.sync_all(ctx)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def karma_graph(self, ctx, *args):
+        '''
+        !karma_graph [@user=author]
+        Shows a karma graph of a user
+        '''
+        users = [ ctx.message.author ]
+        if len(args) > 0:
+            users = [ await UserConverter().convert(ctx, a) for a in args ]
+        await self.bot.karma_graph(ctx, users)
+        # await ctx.send('Done.')

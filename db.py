@@ -115,8 +115,15 @@ class Guild(Relation):
             WHERE C.guild_id = ?''', [self.id])
         return [User(self.db, row) for row in rows]
 
+    async def fetch_challenges(self):
+        rows = await self.db.fetchall(f'''
+            SELECT { Challenge.COLS.join(prefix='C.') } FROM challenge C
+            WHERE C.guild_id = ?
+            ORDER BY C.start_time''', [self.id])
+        return [Challenge(self.db, row) for row in rows]
+
 class User(Relation):
-    COLS = Cols('id', 'discord_id', 'color', 'name', 'karma')
+    COLS = Cols('id', 'discord_id', 'color', 'name')
 
     @staticmethod
     async def fetch_or_insert(db, discord_id, name):
@@ -127,6 +134,12 @@ class User(Relation):
                 [discord_id, color, name])).lastrowid
             u = User(db, [id, discord_id, color, name, 0.0])
         return u
+
+    async def add_award(self, award_url, time):
+        await self.db.execute('INSERT INTO award (user_id, url, time) VALUES(?, ?, ?)', [self.id, award_url, time])
+
+    async def remove_award(self, award_url):
+        await self.db.execute('DELETE FROM award WHERE url = ? AND user_id = ?', [award_url, self.id])
 
     def __init__(self, db, row):
         super().__init__(db, 'user', User.COLS, Cols('id'), row)
@@ -225,6 +238,9 @@ class Challenge(Relation):
             [self.id, user_id])).lastrowid
         return Participant(self.db, [id, self.id, user_id, None, None, None])
 
+    async def set_award(self, award_url):
+        await self.db.execute('UPDATE challenge SET award_url = ? WHERE id = ?', [award_url, self.id])
+
 class Participant(Relation):
     COLS = Cols('id', 'challenge_id', 'user_id', 'failed_round_id', 'progress_current', 'progress_total')
 
@@ -316,6 +332,80 @@ class Roll(Relation):
     async def fetch_title(self):
         return await fromrow(Title, self.db, f'SELECT { Title.COLS } FROM title WHERE id = ?', [self.title_id])
 
+    async def fetch_participant(self):
+        row = await self.db.fetchrow(f'''
+            SELECT { User.COLS.join(prefix='U.') }
+            FROM roll R
+            JOIN participant P ON P.id = R.participant_id
+            JOIN user U ON P.user_id = U.id
+            WHERE R.round_id = ? AND R.participant_id = ?''', [self.round_id, self.participant_id])
+        return User(self.db, row)
+
+    async def fetch_title_author(self):          
+        row = await self.db.fetchrow(f'''
+            SELECT { User.COLS.join(prefix='U.') }
+            FROM roll R
+            JOIN title T ON T.id = R.title_id
+            JOIN participant P ON P.id = T.participant_id
+            JOIN user U ON P.user_id = U.id
+            WHERE R.round_id = ? AND R.participant_id = ?''', [self.round_id, self.participant_id])
+        return User(self.db, row)
+
+class KarmaHistory(Relation):
+    COLS = Cols('user_id', 'karma', 'time')
+
+    def __init__(self, db, row):
+        super().__init__(db, 'karma_history', KarmaHistory.COLS, Cols('user_id', 'time'), row)
+
+    @staticmethod
+    async def fetch_user_karma(db, user_id):
+        rows = await db.fetchall(f'''
+            SELECT karma
+            FROM karma_history
+            WHERE user_id = ?
+            ORDER BY time DESC
+            LIMIT 1''', [user_id])
+
+        print(rows)
+        if rows:
+            return rows[-1][0]
+        else:
+            return None # todo: maybe use constant -> starting_karma
+
+    @staticmethod
+    async def clear_user_karma_history(db, user_id):
+        await db.execute(f'''
+            DELETE FROM karma_history
+            WHERE user_id = ?''', [user_id])
+
+    @staticmethod
+    async def insert_or_update_karma(db, user_id, karma, time):
+        row = await db.fetchrow(f'''
+            SELECT { KarmaHistory.COLS }
+            FROM karma_history
+            WHERE user_id = ? AND time = ?
+            ORDER BY time''', [user_id, time])
+
+        if row is None:
+            await db.execute('''
+                INSERT INTO karma_history
+                (user_id, karma, time)
+                VALUES(?, ?, ?)''', [user_id, karma, time])
+        else:
+            karma_history = KarmaHistory(db, row)
+            karma_history.karma = karma
+            await karma_history.update()
+
+    @staticmethod
+    async def fetch_karma_history(db, user_id):
+        rows = await db.fetchall(f'''
+            SELECT { KarmaHistory.COLS }
+            FROM karma_history
+            WHERE user_id = ?
+            ORDER BY time''', [user_id])
+
+        return [KarmaHistory(db, row) for row in rows]
+
 class UserStats:
     @staticmethod
     async def fetch(db, user_id, guild_id):
@@ -374,6 +464,8 @@ class UserStats:
             ORDER BY time''', [user_id, guild_id, user_id])
         awards = [x[0] for x in awards]
 
+        karma = await KarmaHistory.fetch_user_karma(db, user_id)
+
         finish_time = None
         challenge = await Challenge.fetch_current_challenge(db, guild_id)
         if challenge is not None:
@@ -389,6 +481,7 @@ class UserStats:
                          most_watched,
                          most_sniped,
                          finish_time,
+                         karma,
                          awards)
 
     def __init__(self,
@@ -399,6 +492,7 @@ class UserStats:
                  most_watched,
                  most_sniped,
                  finish_time,
+                 karma,
                  awards):
         self.num_challenges = num_challenges
         self.num_completed = num_completed
@@ -407,4 +501,5 @@ class UserStats:
         self.most_watched = most_watched
         self.most_sniped = most_sniped
         self.finish_time = finish_time
+        self.karma = karma
         self.awards = awards

@@ -25,7 +25,7 @@ def generate_profile_html(user, stats, avatar_url):
         'https://i.imgur.com/XW4kc66.png',
         'https://i.imgur.com/3pPNCGV.png',
     ]
-    url_idx = math.floor(user.karma / 100)
+    url_idx = math.floor(stats.karma / 100)
     url_idx = min(url_idx, len(karma_urls))
     karma_url=karma_urls[url_idx]
     
@@ -58,7 +58,7 @@ def generate_profile_html(user, stats, avatar_url):
                         <div class="karma">
                             <div class="title">Karma</div>
                             <i class="fa fa-heart" aria-hidden="true"></i>
-                            <div class="value">{user.karma:.2f}</div>
+                            <div class="value">{stats.karma:.2f}</div>
                         </div>
 
                         <div class="completed">

@@ -12,7 +12,6 @@ CREATE TABLE user (
 	discord_id INTEGER NOT NULL UNIQUE,
 	color VARCHAR(7),
 	name TEXT NOT NULL,
-	karma INTEGER NOT NULL DEFAULT 0,
 
 	CHECK(color LIKE '#%')
 );
@@ -92,4 +91,12 @@ CREATE TABLE award (
 	"url" TEXT DEFAULT NULL,
 	"time" TIMESTAMP NOT NULL,
 	FOREIGN KEY (participant_id) REFERENCES participant (id)
+)
+
+CREATE TABLE karma_history (
+	user_id INTEGER NOT NULL,
+	karma INTEGER NOT NULL,
+	"time" TIMESTAMP NOT NULL,
+
+	FOREIGN KEY (user_id) REFERENCES user (id)
 )

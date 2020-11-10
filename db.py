@@ -358,12 +358,13 @@ class KarmaHistory(Relation):
         super().__init__(db, 'karma_history', KarmaHistory.COLS, Cols('user_id', 'time'), row)
 
     @staticmethod
-    async def fetch_user_karma(db, user_id): # todo test this function
+    async def fetch_user_karma(db, user_id):
         rows = await db.fetchall(f'''
             SELECT karma
             FROM karma_history
             WHERE user_id = ?
-            ORDER BY time''', [user_id])
+            ORDER BY time DESC
+            LIMIT 1''', [user_id])
 
         print(rows)
         if rows:
@@ -372,15 +373,15 @@ class KarmaHistory(Relation):
             return None # todo: maybe use constant -> starting_karma
 
     @staticmethod
-    async def clear_user_karma_history(db, user_id): # todo test this function
+    async def clear_user_karma_history(db, user_id):
         await db.execute(f'''
             DELETE FROM karma_history
             WHERE user_id = ?''', [user_id])
 
     @staticmethod
-    async def insert_or_update_karma(db, user_id, karma, time): # todo test this function
+    async def insert_or_update_karma(db, user_id, karma, time):
         row = await db.fetchrow(f'''
-            SELECT *
+            SELECT { KarmaHistory.COLS }
             FROM karma_history
             WHERE user_id = ? AND time = ?
             ORDER BY time''', [user_id, time])
@@ -394,6 +395,16 @@ class KarmaHistory(Relation):
             karma_history = KarmaHistory(db, row)
             karma_history.karma = karma
             await karma_history.update()
+
+    @staticmethod
+    async def fetch_karma_history(db, user_id):
+        rows = await db.fetchall(f'''
+            SELECT { KarmaHistory.COLS }
+            FROM karma_history
+            WHERE user_id = ?
+            ORDER BY time''', [user_id])
+
+        return [KarmaHistory(db, row) for row in rows]
 
 class UserStats:
     @staticmethod

@@ -636,3 +636,15 @@ class User(commands.Cog):
         '''
         await self.bot.sync_all(ctx)
         await ctx.send('Done.')
+
+    @commands.command()
+    async def karma_graph(self, ctx, *args):
+        '''
+        !karma_graph [@user=author]
+        Shows a karma graph of a user
+        '''
+        users = [ ctx.message.author ]
+        if len(args) > 0:
+            users = [ await UserConverter().convert(ctx, a) for a in args ]
+        await self.bot.karma_graph(ctx, users)
+        # await ctx.send('Done.')

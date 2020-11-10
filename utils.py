@@ -1,4 +1,5 @@
 import re
+import random
 
 def is_vaild_url(url):
     regex = re.compile(
@@ -10,3 +11,7 @@ def is_vaild_url(url):
         r'(?:/?|[/?]\S+)$', re.IGNORECASE)
         
     return re.match(regex, url) is not None
+
+# todo: make better fname generation
+def gen_fname(prefix=''):
+    return f'{int(random.random()*10000)}{prefix}'

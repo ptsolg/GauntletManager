@@ -6,13 +6,16 @@ import asyncio
 import aiosqlite
 import sqlite3
 import json
+import matplotlib.pyplot as plt
 
+from discord import File
 from discord.ext import commands
 from datetime import datetime, timedelta
 from cogs import BotErr
 from db import Db, Guild, Challenge, Pool, User, Participant, Title, Roll, KarmaHistory, UserStats
 from export import export
 from thirdparty_api.api_title_info import ApiTitleInfo
+from utils import gen_fname
 
 class State:
     @staticmethod
@@ -401,7 +404,7 @@ class Bot(commands.Bot):
 
     async def set_award(self, ctx, url):
         state = await State.fetch(self, ctx, allow_started=True)
-        await state.cc.set_award_url(url)
+        await state.cc.set_award(url)
 
     async def add_award(self, ctx, user, url):
         state = await State.fetch(self, ctx, allow_started=True)
@@ -412,6 +415,27 @@ class Bot(commands.Bot):
         state = await State.fetch(self, ctx, allow_started=True)
         user = await state.fetch_user(user)
         await user.remove_award(url)
+
+    async def karma_graph(self, ctx, users):
+        state = await State.fetch(self, ctx, allow_started=True)
+        fig = plt.figure()
+        plt.xticks(rotation=30)
+        for user in users:
+            user = await state.fetch_user(user)
+            history = await KarmaHistory.fetch_karma_history(self.db, user.id)
+            if len(history) == 0:
+                ctx.send(f'{user.name} has no karma history')
+                return
+
+            times = [ entry.time for entry in history ]
+            karmas = [ entry.karma for entry in history ]
+            plt.plot(times, karmas, label = user.name)
+         
+        plt.legend()
+        pic_name = gen_fname('.png')
+        fig.savefig(pic_name, dpi=900, marker='.')
+        await ctx.send(file=File(pic_name))
+        os.remove(pic_name)
         
 async def main():
     config = json.loads(open("config.json", 'rb').read())

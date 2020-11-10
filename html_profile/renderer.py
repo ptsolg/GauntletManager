@@ -2,6 +2,8 @@ import imgkit
 import hashlib
 import random
 
+from utils import gen_fname
+
 def render_html_from_string(html_string, css_path):
     options = {
         "enable-local-file-access": None,
@@ -13,6 +15,6 @@ def render_html_from_string(html_string, css_path):
         "quiet": None,
     }
 
-    fname = f'{int(random.random()*10000)}.jpg'
+    fname = gen_fname('.jpg')
     imgkit.from_string(html_string, fname, options=options, css=css_path)
     return fname
